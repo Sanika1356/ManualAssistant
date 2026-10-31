@@ -200,11 +200,7 @@ class ManualUploadAPITests(TestCase):
         )
         self.supervisor_user.groups.add(self.supervisor_group)
 
-    def _create_valid_pdf_file(
-        self,
-        filename="valid_manual.pdf",
-        size_kb=1
-    ):
+    def _create_valid_pdf_file(self, filename="valid_manual.pdf"):
         pdf = pymupdf.open()
         page = pdf.new_page()
         page.insert_text(
@@ -235,9 +231,7 @@ class ManualUploadAPITests(TestCase):
 
         with override_settings(MEDIA_ROOT=self.temp_media):
             response = self.client.post(
-                self.url,
-                data,
-                format="multipart"
+                self.url, data, format="multipart"
             )
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -276,9 +270,7 @@ class ManualUploadAPITests(TestCase):
 
         with override_settings(MEDIA_ROOT=self.temp_media):
             response = self.client.post(
-                self.url,
-                data,
-                format="multipart"
+                self.url, data, format="multipart"
             )
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -342,9 +334,7 @@ class ManualUploadAPITests(TestCase):
 
         with override_settings(MEDIA_ROOT=self.temp_media):
             response1 = self.client.post(
-                self.url,
-                data,
-                format="multipart"
+                self.url, data, format="multipart"
             )
 
         self.assertEqual(
@@ -358,9 +348,7 @@ class ManualUploadAPITests(TestCase):
 
         with override_settings(MEDIA_ROOT=self.temp_media):
             response2 = self.client.post(
-                self.url,
-                data2,
-                format="multipart"
+                self.url, data2, format="multipart"
             )
 
         self.assertEqual(
@@ -410,9 +398,7 @@ class ManualUploadAPITests(TestCase):
 
         with override_settings(MEDIA_ROOT=self.temp_media):
             response = self.client.post(
-                self.url,
-                data,
-                format="multipart"
+                self.url, data, format="multipart"
             )
 
         self.assertEqual(
@@ -421,10 +407,7 @@ class ManualUploadAPITests(TestCase):
         )
         self.assertIn("file", response.data)
         self.assertTrue(
-            any(
-                ".pdf" in str(err).lower()
-                for err in response.data["file"]
-            )
+            any(".pdf" in str(err).lower() for err in response.data["file"])
         )
 
     def test_reject_invalid_pdf_magic_bytes(self):
@@ -446,9 +429,7 @@ class ManualUploadAPITests(TestCase):
 
         with override_settings(MEDIA_ROOT=self.temp_media):
             response = self.client.post(
-                self.url,
-                data,
-                format="multipart"
+                self.url, data, format="multipart"
             )
 
         self.assertEqual(
@@ -476,9 +457,7 @@ class ManualUploadAPITests(TestCase):
 
         with override_settings(MEDIA_ROOT=self.temp_media):
             response = self.client.post(
-                self.url,
-                data,
-                format="multipart"
+                self.url, data, format="multipart"
             )
 
         self.assertEqual(
@@ -490,8 +469,8 @@ class ManualUploadAPITests(TestCase):
     def test_reject_oversized_file(self):
         self.client.force_authenticate(user=self.admin_user)
 
-        oversized_content = (
-            b"%PDF-" + (b"X" * (25 * 1024 * 1024 + 10))
+        oversized_content = b"%PDF-" + (
+            b"X" * (25 * 1024 * 1024 + 10)
         )
 
         oversized_file = SimpleUploadedFile(
@@ -510,9 +489,7 @@ class ManualUploadAPITests(TestCase):
 
         with override_settings(MEDIA_ROOT=self.temp_media):
             response = self.client.post(
-                self.url,
-                data,
-                format="multipart"
+                self.url, data, format="multipart"
             )
 
         self.assertEqual(
@@ -548,9 +525,7 @@ class ManualUploadAPITests(TestCase):
 
         with override_settings(MEDIA_ROOT=self.temp_media):
             response = self.client.post(
-                self.url,
-                data,
-                format="multipart"
+                self.url, data, format="multipart"
             )
 
         self.assertEqual(
@@ -558,7 +533,6 @@ class ManualUploadAPITests(TestCase):
             status.HTTP_400_BAD_REQUEST
         )
         self.assertIn("file", response.data)
-
         self.assertFalse(
             Manual.objects.filter(
                 name="Corrupted Manual",
@@ -572,7 +546,6 @@ class ManualUploadAPITests(TestCase):
         pdf = pymupdf.open()
         page = pdf.new_page()
 
-        # Add an image without any selectable text.
         pixmap = pymupdf.Pixmap(
             pymupdf.csRGB,
             pymupdf.IRect(0, 0, 100, 100),
@@ -602,9 +575,7 @@ class ManualUploadAPITests(TestCase):
 
         with override_settings(MEDIA_ROOT=self.temp_media):
             response = self.client.post(
-                self.url,
-                data,
-                format="multipart"
+                self.url, data, format="multipart"
             )
 
         self.assertEqual(
@@ -612,7 +583,6 @@ class ManualUploadAPITests(TestCase):
             status.HTTP_400_BAD_REQUEST
         )
         self.assertIn("file", response.data)
-
         self.assertFalse(
             Manual.objects.filter(
                 name="Scanned Manual",
@@ -641,23 +611,19 @@ class ManualUploadAPITests(TestCase):
 
         with override_settings(MEDIA_ROOT=self.temp_media):
             response = self.client.post(
-                self.url,
-                data,
-                format="multipart"
+                self.url, data, format="multipart"
             )
 
         self.assertEqual(
             response.status_code,
             status.HTTP_400_BAD_REQUEST
         )
-
         self.assertFalse(
             Manual.objects.filter(
                 name="Cleanup Test Manual",
                 revision="1.0"
             ).exists()
         )
-
         self.assertEqual(
             set(os.listdir(self.temp_media)),
             existing_files
@@ -703,3 +669,172 @@ class TextChunkingTests(TestCase):
                 chunk_size=10,
                 overlap=10
             )
+
+
+# TASK 6 TESTS
+
+class ManualPDFViewAPITests(TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.temp_media = tempfile.mkdtemp()
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.temp_media, ignore_errors=True)
+        super().tearDownClass()
+
+    def setUp(self):
+        self.client = APIClient()
+        self.url = "/api/manuals/"
+
+        self.admin_group, _ = Group.objects.get_or_create(
+            name="Administrator"
+        )
+        self.engineer_group, _ = Group.objects.get_or_create(
+            name="Engineer"
+        )
+        self.supervisor_group, _ = Group.objects.get_or_create(
+            name="Supervisor"
+        )
+
+        self.admin_user = User.objects.create_user(
+            username="pdf_admin",
+            password="AdminPassword@123",
+        )
+        self.admin_user.groups.add(self.admin_group)
+
+        self.engineer_user = User.objects.create_user(
+            username="pdf_engineer",
+            password="EngineerPassword@123",
+        )
+        self.engineer_user.groups.add(self.engineer_group)
+
+        self.supervisor_user = User.objects.create_user(
+            username="pdf_supervisor",
+            password="SupervisorPassword@123",
+        )
+        self.supervisor_user.groups.add(self.supervisor_group)
+
+        self.machine = Machine.objects.create(
+            name="Haas Mill",
+            model="VF-2",
+        )
+
+    def _create_manual(self):
+        pdf = pymupdf.open()
+        page = pdf.new_page()
+        page.insert_text(
+            (72, 72),
+            "This is a protected PDF manual.",
+        )
+
+        pdf_content = pdf.tobytes()
+        pdf.close()
+
+        uploaded_file = SimpleUploadedFile(
+            "protected_manual.pdf",
+            pdf_content,
+            content_type="application/pdf",
+        )
+
+        # Save the PDF using the same temporary MEDIA_ROOT
+        # that the endpoint uses to retrieve the file.
+        with override_settings(MEDIA_ROOT=self.temp_media):
+            manual = Manual.objects.create(
+                machine=self.machine,
+                name="Protected Manual",
+                revision="1.0",
+                file=uploaded_file,
+            )
+
+        return manual
+
+    def test_administrator_can_view_manual_pdf(self):
+        self.client.force_authenticate(user=self.admin_user)
+        manual = self._create_manual()
+
+        with override_settings(MEDIA_ROOT=self.temp_media):
+            response = self.client.get(
+                f"{self.url}{manual.id}/pdf/"
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response["Content-Type"], "application/pdf")
+        self.assertIn("inline", response["Content-Disposition"])
+
+    def test_engineer_can_view_manual_pdf(self):
+        self.client.force_authenticate(user=self.engineer_user)
+        manual = self._create_manual()
+
+        with override_settings(MEDIA_ROOT=self.temp_media):
+            response = self.client.get(
+                f"{self.url}{manual.id}/pdf/"
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response["Content-Type"], "application/pdf")
+        self.assertIn("inline", response["Content-Disposition"])
+        self.assertEqual(
+            b"".join(response.streaming_content)[:5],
+            b"%PDF-",
+        )
+
+    def test_supervisor_can_view_manual_pdf(self):
+        self.client.force_authenticate(user=self.supervisor_user)
+        manual = self._create_manual()
+
+        with override_settings(MEDIA_ROOT=self.temp_media):
+            response = self.client.get(
+                f"{self.url}{manual.id}/pdf/"
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response["Content-Type"], "application/pdf")
+
+    def test_unauthenticated_user_cannot_view_manual_pdf(self):
+        manual = self._create_manual()
+
+        with override_settings(MEDIA_ROOT=self.temp_media):
+            response = self.client.get(
+                f"{self.url}{manual.id}/pdf/"
+            )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_403_FORBIDDEN,
+        )
+
+    def test_nonexistent_manual_returns_404(self):
+        self.client.force_authenticate(user=self.engineer_user)
+
+        with override_settings(MEDIA_ROOT=self.temp_media):
+            response = self.client.get(
+                f"{self.url}99999/pdf/"
+            )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_404_NOT_FOUND,
+        )
+
+    def test_missing_pdf_file_returns_404(self):
+        self.client.force_authenticate(user=self.engineer_user)
+
+        with override_settings(MEDIA_ROOT=self.temp_media):
+            manual = Manual.objects.create(
+                machine=self.machine,
+                name="Missing File Manual",
+                revision="1.0",
+                file="manuals/missing_file.pdf",
+            )
+
+            response = self.client.get(
+                f"{self.url}{manual.id}/pdf/"
+            )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_404_NOT_FOUND,
+        )
