@@ -1,4 +1,5 @@
 
+import os
 import shutil
 import tempfile
 
@@ -524,6 +525,142 @@ class ManualUploadAPITests(TestCase):
                 "25 mb" in str(err).lower()
                 for err in response.data["file"]
             )
+        )
+
+    # TASK 5 TESTS
+
+    def test_reject_corrupted_pdf_with_valid_header(self):
+        self.client.force_authenticate(user=self.admin_user)
+
+        corrupted_pdf = SimpleUploadedFile(
+            "corrupted.pdf",
+            b"%PDF-1.4 this is not a real PDF document",
+            content_type="application/pdf",
+        )
+
+        data = {
+            "machine_name": "Haas Mill",
+            "machine_model": "VF-2",
+            "name": "Corrupted Manual",
+            "revision": "1.0",
+            "file": corrupted_pdf,
+        }
+
+        with override_settings(MEDIA_ROOT=self.temp_media):
+            response = self.client.post(
+                self.url,
+                data,
+                format="multipart"
+            )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_400_BAD_REQUEST
+        )
+        self.assertIn("file", response.data)
+
+        self.assertFalse(
+            Manual.objects.filter(
+                name="Corrupted Manual",
+                revision="1.0"
+            ).exists()
+        )
+
+    def test_reject_pdf_without_extractable_text(self):
+        self.client.force_authenticate(user=self.admin_user)
+
+        pdf = pymupdf.open()
+        page = pdf.new_page()
+
+        # Add an image without any selectable text.
+        pixmap = pymupdf.Pixmap(
+            pymupdf.csRGB,
+            pymupdf.IRect(0, 0, 100, 100),
+            0
+        )
+        pixmap.clear_with(255)
+
+        image_bytes = pixmap.tobytes("png")
+        page.insert_image(page.rect, stream=image_bytes)
+
+        pdf_content = pdf.tobytes()
+        pdf.close()
+
+        image_only_pdf = SimpleUploadedFile(
+            "scanned_manual.pdf",
+            pdf_content,
+            content_type="application/pdf",
+        )
+
+        data = {
+            "machine_name": "Haas Mill",
+            "machine_model": "VF-2",
+            "name": "Scanned Manual",
+            "revision": "1.0",
+            "file": image_only_pdf,
+        }
+
+        with override_settings(MEDIA_ROOT=self.temp_media):
+            response = self.client.post(
+                self.url,
+                data,
+                format="multipart"
+            )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_400_BAD_REQUEST
+        )
+        self.assertIn("file", response.data)
+
+        self.assertFalse(
+            Manual.objects.filter(
+                name="Scanned Manual",
+                revision="1.0"
+            ).exists()
+        )
+
+    def test_failed_extraction_cleans_up_manual_and_file(self):
+        self.client.force_authenticate(user=self.admin_user)
+
+        existing_files = set(os.listdir(self.temp_media))
+
+        corrupted_pdf = SimpleUploadedFile(
+            "cleanup_test.pdf",
+            b"%PDF-1.4 invalid PDF content",
+            content_type="application/pdf",
+        )
+
+        data = {
+            "machine_name": "Haas Mill",
+            "machine_model": "VF-2",
+            "name": "Cleanup Test Manual",
+            "revision": "1.0",
+            "file": corrupted_pdf,
+        }
+
+        with override_settings(MEDIA_ROOT=self.temp_media):
+            response = self.client.post(
+                self.url,
+                data,
+                format="multipart"
+            )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_400_BAD_REQUEST
+        )
+
+        self.assertFalse(
+            Manual.objects.filter(
+                name="Cleanup Test Manual",
+                revision="1.0"
+            ).exists()
+        )
+
+        self.assertEqual(
+            set(os.listdir(self.temp_media)),
+            existing_files
         )
 
 
