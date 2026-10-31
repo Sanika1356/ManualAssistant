@@ -14,8 +14,56 @@ from accounts.permissions import (
     IsSupervisor,
 )
 
-from .models import Manual
-from .serializers import ManualUploadSerializer
+from .models import Machine, Manual
+from .serializers import (
+    MachineSerializer,
+    ManualListSerializer,
+    ManualUploadSerializer,
+)
+
+
+class MachineListCreateAPIView(APIView):
+    """
+    Allows Administrators to create and view machines.
+    """
+
+    permission_classes = [IsAuthenticated, IsAdministrator]
+
+    def get(self, request, *args, **kwargs):
+        machines = Machine.objects.all()
+        serializer = MachineSerializer(machines, many=True)
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request, *args, **kwargs):
+        serializer = MachineSerializer(data=request.data)
+
+        if serializer.is_valid():
+            machine = serializer.save()
+
+            return Response(
+                MachineSerializer(machine).data,
+                status=status.HTTP_201_CREATED,
+            )
+
+        return Response(
+            serializer.errors,
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+
+class ManualListAPIView(APIView):
+    """
+    Allows Administrators to view all uploaded manuals.
+    """
+
+    permission_classes = [IsAuthenticated, IsAdministrator]
+
+    def get(self, request, *args, **kwargs):
+        manuals = Manual.objects.select_related("machine").all()
+        serializer = ManualListSerializer(manuals, many=True)
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class ManualUploadAPIView(APIView):

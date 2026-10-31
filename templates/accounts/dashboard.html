@@ -1,120 +1,1761 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard | Manual Assistant</title>
 
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-          rel="stylesheet">
+    <title>Manual Assistant | Engineering Intelligence</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Barlow+Condensed:wght@500;600;700;800&display=swap"
+        rel="stylesheet">
 
     <style>
+        :root {
+            --teal: #13b8a6;
+            --teal-dark: #087f76;
+            --dark: #10191b;
+            --dark-2: #172326;
+            --steel: #263638;
+            --light: #f4f6f5;
+            --muted: #899997;
+            --border: #dfe6e3;
+        }
+
+        * {
+            box-sizing: border-box;
+            scroll-behavior: smooth;
+        }
+
         body {
-            background: #f1f5f9;
+            margin: 0;
+            background: var(--light);
+            color: #182527;
+            font-family: 'DM Sans', sans-serif;
         }
 
-        .navbar {
-            background: #1e293b;
+        a {
+            text-decoration: none;
         }
 
-        .dashboard-card {
+        /* NAVBAR */
+
+        .main-navbar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            z-index: 100;
+            padding: 18px 0;
+            background: rgba(9, 18, 20, 0.72);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+        }
+
+        .navbar-brand {
+            font-family: 'Barlow Condensed', sans-serif;
+            font-size: 30px;
+            font-weight: 800;
+            color: white !important;
+            letter-spacing: 1px;
+        }
+
+        .brand-mark {
+            color: var(--teal);
+            margin-right: 7px;
+        }
+
+        .nav-link {
+            color: #e4ecea !important;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.7px;
+            text-transform: uppercase;
+            margin: 0 10px;
+            transition: 0.2s;
+        }
+
+        .nav-link:hover {
+            color: var(--teal) !important;
+        }
+
+        .logout-btn {
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            color: white;
+            background: transparent;
+            padding: 9px 18px;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            transition: 0.2s;
+        }
+
+        .logout-btn:hover {
+            background: var(--teal);
+            color: var(--dark);
+            border-color: var(--teal);
+        }
+
+        /* HERO */
+
+        .hero {
+            min-height: 590px;
+            position: relative;
+            display: flex;
+            align-items: center;
+            background:
+                linear-gradient(90deg, rgba(8, 17, 19, 0.92) 0%, rgba(8, 17, 19, 0.68) 50%, rgba(8, 17, 19, 0.15) 100%),
+                url("https://images.unsplash.com/photo-1581092160562-40aa08e78837?auto=format&fit=crop&w=2000&q=85") center 45% / cover no-repeat;
+        }
+
+        .hero-content {
+            padding-top: 90px;
+            max-width: 760px;
+        }
+
+        .hero-label {
+            color: var(--teal);
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+        }
+
+        .hero h1 {
+            color: white;
+            font-family: 'Barlow Condensed', sans-serif;
+            font-size: clamp(48px, 7vw, 83px);
+            line-height: 0.99;
+            font-weight: 800;
+            text-transform: uppercase;
+            margin: 20px 0;
+        }
+
+        .hero h1 span {
+            color: var(--teal);
+        }
+
+        .hero-description {
+            color: #d2dcda;
+            font-size: 15px;
+            line-height: 1.8;
+            max-width: 560px;
+        }
+
+        .hero-actions {
+            display: flex;
+            gap: 13px;
+            flex-wrap: wrap;
+            margin-top: 30px;
+        }
+
+        .btn-primary-custom {
+            display: inline-block;
+            background: var(--teal);
+            color: #09211e;
+            padding: 13px 25px;
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+            border: 1px solid var(--teal);
+            transition: 0.25s;
+        }
+
+        .btn-primary-custom:hover {
+            background: white;
+            border-color: white;
+            color: var(--dark);
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary-custom {
+            display: inline-block;
+            background: transparent;
+            color: white;
+            padding: 13px 25px;
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+            border: 1px solid rgba(255, 255, 255, 0.7);
+            transition: 0.25s;
+        }
+
+        .btn-secondary-custom:hover {
+            background: white;
+            color: var(--dark);
+        }
+
+        .hero-bottom-line {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 5px;
+            background: var(--teal);
+        }
+
+        /* COMMON SECTIONS */
+
+        .section-wrap {
+            padding: 85px 0;
+        }
+
+        .section-kicker {
+            color: var(--teal-dark);
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: 2.5px;
+            text-transform: uppercase;
+        }
+
+        .section-heading {
+            font-family: 'Barlow Condensed', sans-serif;
+            font-size: 42px;
+            font-weight: 800;
+            text-transform: uppercase;
+            margin-top: 8px;
+            margin-bottom: 12px;
+        }
+
+        .section-description {
+            color: #73817e;
+            font-size: 14px;
+            line-height: 1.8;
+        }
+
+        /* ENGINEERING CARDS */
+
+        .engineering-section {
+            background: #fff;
+        }
+
+        .engineering-card {
+            height: 310px;
+            position: relative;
+            overflow: hidden;
+            background: var(--dark);
+            color: white;
+        }
+
+        .engineering-card img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.6s;
+        }
+
+        .engineering-card:hover img {
+            transform: scale(1.08);
+        }
+
+        .engineering-card::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(0deg, rgba(5, 14, 16, 0.95), rgba(5, 14, 16, 0.05) 90%);
+        }
+
+        .engineering-card-content {
+            position: absolute;
+            bottom: 25px;
+            left: 25px;
+            z-index: 2;
+        }
+
+        .engineering-card-content small {
+            color: var(--teal);
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 2px;
+        }
+
+        .engineering-card-content h3 {
+            font-family: 'Barlow Condensed', sans-serif;
+            font-size: 29px;
+            font-weight: 700;
+            margin: 8px 0;
+            text-transform: uppercase;
+        }
+
+        .engineering-card-content a {
+            color: white;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .engineering-card-content a:hover {
+            color: var(--teal);
+        }
+
+        /* STATISTICS */
+
+        .stats-section {
+            background: var(--dark);
+            padding: 52px 0;
+            color: white;
+        }
+
+        .stat-item {
+            padding: 15px 25px;
+            border-right: 1px solid #344345;
+        }
+
+        .stat-item:last-child {
+            border-right: none;
+        }
+
+        .stat-number {
+            font-family: 'Barlow Condensed', sans-serif;
+            font-size: 47px;
+            font-weight: 800;
+            color: var(--teal);
+        }
+
+        .stat-label {
+            color: #a9b7b4;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+        }
+
+        /* ADMIN MANAGEMENT */
+
+        .management-section {
+            background: #f1f4f2;
+        }
+
+        .management-card {
+            background: white;
+            height: 100%;
+            padding: 30px;
+            border: 1px solid #e2e8e5;
+            border-top: 4px solid var(--teal);
+            box-shadow: 0 10px 35px rgba(15, 35, 33, 0.05);
+        }
+
+        .management-icon {
+            width: 48px;
+            height: 48px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #e2f6f2;
+            color: var(--teal-dark);
+            font-size: 23px;
+            margin-bottom: 20px;
+        }
+
+        .management-card h3 {
+            font-family: 'Barlow Condensed', sans-serif;
+            font-size: 27px;
+            font-weight: 700;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+
+        .management-card p {
+            color: #788683;
+            font-size: 13px;
+            line-height: 1.7;
+            margin-bottom: 23px;
+        }
+
+        /* FORMS */
+
+        .form-label {
+            color: #334340;
+            font-size: 12px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .form-control,
+        .form-select {
+            border: 1px solid #dce5e1;
+            border-radius: 0;
+            padding: 12px;
+            font-size: 13px;
+            background: #f9fbfa;
+            color: #253331;
+        }
+
+        .form-control:focus,
+        .form-select:focus {
+            border-color: var(--teal);
+            box-shadow: 0 0 0 3px rgba(19, 184, 166, 0.12);
+            background: white;
+        }
+
+        .form-control::placeholder {
+            color: #a1adaa;
+        }
+
+        .form-select option {
+            color: #253331;
+        }
+
+        .action-btn {
+            background: var(--dark);
+            border: 1px solid var(--dark);
+            color: white;
+            padding: 12px 20px;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            transition: 0.2s;
+        }
+
+        .action-btn:hover {
+            background: var(--teal);
+            border-color: var(--teal);
+            color: var(--dark);
+        }
+
+        .action-btn:disabled {
+            opacity: 0.6;
+            cursor: wait;
+        }
+
+        /* DOCUMENTATION TABLE */
+
+        .library-section {
+            background: white;
+        }
+
+        .library-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .table-responsive {
+            border: 1px solid #e2e8e5;
+        }
+
+        .table {
+            margin-bottom: 0;
+            vertical-align: middle;
+        }
+
+        .table thead th {
+            background: var(--dark);
+            color: white;
+            padding: 16px 14px;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            white-space: nowrap;
             border: none;
-            border-radius: 15px;
-            box-shadow: 0 5px 20px rgba(0,0,0,0.06);
+        }
+
+        .table tbody td {
+            padding: 15px 14px;
+            font-size: 12px;
+            color: #354440;
+            border-color: #e8eeeb;
+        }
+
+        .table tbody tr:hover td {
+            background: #f0f9f7;
+        }
+
+        .revision-badge {
+            background: #dff5f0;
+            color: #087f76;
+            padding: 6px 10px;
+            font-size: 10px;
+            font-weight: 800;
+            display: inline-block;
+        }
+
+        .machine-badge {
+            background: #edf1ef;
+            color: #485854;
+            padding: 6px 10px;
+            font-size: 10px;
+            font-weight: 700;
+            display: inline-block;
+        }
+
+        .pdf-link {
+            color: var(--teal-dark);
+            font-size: 11px;
+            font-weight: 800;
+            white-space: nowrap;
+        }
+
+        .pdf-link:hover {
+            color: #064e48;
+        }
+
+        .empty-state {
+            padding: 35px !important;
+            text-align: center;
+            color: #82918d !important;
+        }
+
+        /* ALERTS */
+
+        .alert {
+            border-radius: 0;
+            font-size: 13px;
+        }
+
+        .alert-success {
+            background: #e4f8f2;
+            color: #087f76;
+            border: 1px solid #b8e8db;
+        }
+
+        .alert-danger {
+            background: #fff0ee;
+            color: #b33d32;
+            border: 1px solid #f2c7c2;
+        }
+
+        /* OTHER ROLES */
+
+        .role-section {
+            background: white;
+            padding: 55px;
+            border-left: 5px solid var(--teal);
+        }
+
+        /* FOOTER */
+
+        footer {
+            background: #0d1517;
+            color: #8c9b98;
+            padding: 30px 0;
+            font-size: 11px;
+            letter-spacing: 1px;
+        }
+
+        footer strong {
+            color: var(--teal);
+        }
+
+        @media (max-width: 768px) {
+
+            .hero {
+                min-height: 550px;
+                background-position: 58% center;
+            }
+
+            .hero h1 {
+                font-size: 55px;
+            }
+
+            .section-wrap {
+                padding: 60px 0;
+            }
+
+            .engineering-card {
+                height: 260px;
+            }
+
+            .stat-item {
+                border-right: none;
+                border-bottom: 1px solid #344345;
+            }
+
+            .stat-item:last-child {
+                border-bottom: none;
+            }
+
+            .role-section {
+                padding: 25px;
+            }
+
         }
     </style>
 </head>
 
+
 <body>
 
-<nav class="navbar navbar-dark px-4 py-3">
-    <span class="navbar-brand fw-bold">⚙ Manual Assistant</span>
+    <!-- NAVIGATION -->
 
-    <button class="btn btn-outline-light btn-sm" onclick="logout()">
-        Logout
-    </button>
-</nav>
+    <nav class="navbar navbar-expand-lg main-navbar">
 
-<div class="container py-5">
+        <div class="container">
 
-    <h2 class="fw-bold">Welcome, {{ username }}!</h2>
+            <a class="navbar-brand" href="/dashboard/">
+                <span class="brand-mark">◆</span> MANUAL ASSISTANT
+            </a>
 
-    <p class="text-muted">
-        You are logged in as
-        <strong>{{ role }}</strong>.
-    </p>
+            <button class="navbar-toggler bg-light" type="button" data-bs-toggle="collapse"
+                data-bs-target="#mainNavigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <div class="collapse navbar-collapse" id="mainNavigation">
+
+                <ul class="navbar-nav ms-auto align-items-lg-center">
+
+                    <li class="nav-item">
+                        <a class="nav-link" href="/dashboard/">Home</a>
+                    </li>
+
+                    {% if role == "Administrator" %}
+
+                    <li class="nav-item">
+                        <a class="nav-link" href="#machines">Machines</a>
+                    </li>
+
+                    <li class="nav-item">
+                        <a class="nav-link" href="#upload">Upload</a>
+                    </li>
+
+                    <li class="nav-item">
+                        <a class="nav-link" href="#library">Manual Library</a>
+                    </li>
+
+                    {% endif %}
+
+                    <li class="nav-item ms-lg-3 mt-3 mt-lg-0">
+                        <button class="logout-btn" onclick="logout()">
+                            LOGOUT ↗
+                        </button>
+                    </li>
+
+                </ul>
+
+            </div>
+
+        </div>
+
+    </nav>
+
+
+    <!-- HERO -->
+
+    <section class="hero">
+
+        <div class="container">
+
+            <div class="hero-content">
+
+                <div class="hero-label">
+                    Engineering Intelligence Platform
+                </div>
+
+                {% if role == "Administrator" %}
+
+                <h1>
+                    Smarter<br>
+                    Machines.<br>
+                    <span>Smarter</span><br>
+                    Knowledge.
+                </h1>
+
+                <p class="hero-description">
+                    Manage industrial machines, organize technical documentation
+                    and access machine intelligence through one centralized platform.
+                </p>
+
+                <div class="hero-actions">
+
+                    <a href="#machines" class="btn-primary-custom">
+                        Manage Machines →
+                    </a>
+
+                    <a href="#library" class="btn-secondary-custom">
+                        Explore Manuals
+                    </a>
+
+                </div>
+
+                {% elif role == "Engineer" %}
+
+                <h1>
+                    Engineering<br>
+                    Knowledge.<br>
+                    <span>Made</span><br>
+                    Accessible.
+                </h1>
+
+                <p class="hero-description">
+                    Access technical documentation and find solutions
+                    to machine-related engineering problems.
+                </p>
+
+                <div class="hero-actions">
+                    <a href="#roleContent" class="btn-primary-custom">
+                        Explore Workspace →
+                    </a>
+                </div>
+
+                {% elif role == "Supervisor" %}
+
+                <h1>
+                    Complete<br>
+                    Operational<br>
+                    <span>Visibility.</span>
+                </h1>
+
+                <p class="hero-description">
+                    Monitor engineering activity and access operational
+                    documentation through a centralized workspace.
+                </p>
+
+                <div class="hero-actions">
+                    <a href="#roleContent" class="btn-primary-custom">
+                        Open Workspace →
+                    </a>
+                </div>
+
+                {% endif %}
+
+            </div>
+
+        </div>
+
+        <div class="hero-bottom-line"></div>
+
+    </section>
+
 
     {% if role == "Administrator" %}
 
-        <div class="card dashboard-card p-4 mt-4">
-            <h4>Administrator Dashboard</h4>
-            <p>Manage users, roles, machines and manuals.</p>
-            <a href="/admin/" class="btn btn-primary">
-                Open Django Administration
-            </a>
+
+    <!-- ENGINEERING CATEGORIES -->
+
+    <section class="section-wrap engineering-section">
+
+        <div class="container">
+
+            <div class="mb-5">
+
+                <div class="section-kicker">
+                    Built for Industry
+                </div>
+
+                <h2 class="section-heading">
+                    Engineering Documentation
+                </h2>
+
+                <p class="section-description">
+                    A unified environment for industrial machine records,
+                    technical manuals and equipment documentation.
+                </p>
+
+            </div>
+
+
+            <div class="row g-3">
+
+                <div class="col-md-4">
+
+                    <div class="engineering-card">
+
+                        <img src="https://images.unsplash.com/photo-1567789884554-0b844b597180?auto=format&fit=crop&w=900&q=80"
+                            alt="Industrial machinery">
+
+                        <div class="engineering-card-content">
+
+                            <small>01 / EQUIPMENT</small>
+
+                            <h3>Machine Management</h3>
+
+                            <a href="#machines">REGISTER MACHINES →</a>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <div class="col-md-4">
+
+                    <div class="engineering-card">
+
+                        <img src="https://images.unsplash.com/photo-1581092580497-e0d23cbdf1dc?auto=format&fit=crop&w=900&q=80"
+                            alt="Engineering workspace">
+
+                        <div class="engineering-card-content">
+
+                            <small>02 / DOCUMENTATION</small>
+
+                            <h3>Technical Manuals</h3>
+
+                            <a href="#upload">UPLOAD DOCUMENTS →</a>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <div class="col-md-4">
+
+                    <div class="engineering-card">
+
+                        <img src="https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?auto=format&fit=crop&w=900&q=80"
+                            alt="Industrial engineer">
+
+                        <div class="engineering-card-content">
+
+                            <small>03 / KNOWLEDGE</small>
+
+                            <h3>Document Repository</h3>
+
+                            <a href="#library">EXPLORE LIBRARY →</a>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
         </div>
+
+    </section>
+
+
+    <!-- STATISTICS -->
+
+    <section class="stats-section">
+
+        <div class="container">
+
+            <div class="row text-center">
+
+                <div class="col-md-6 stat-item">
+
+                    <div class="stat-number" id="machineCount">
+                        --
+                    </div>
+
+                    <div class="stat-label">
+                        Registered Machines
+                    </div>
+
+                </div>
+
+
+                <div class="col-md-6 stat-item">
+
+                    <div class="stat-number" id="manualCount">
+                        --
+                    </div>
+
+                    <div class="stat-label">
+                        Technical Manuals
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- ADMIN MANAGEMENT -->
+
+    <section class="section-wrap management-section" id="machines">
+
+        <div class="container">
+
+            <div class="mb-5">
+
+                <div class="section-kicker">
+                    Administrator Workspace
+                </div>
+
+                <h2 class="section-heading">
+                    Manage Your Equipment
+                </h2>
+
+                <p class="section-description">
+                    Register industrial machines and maintain their technical
+                    documentation in one place.
+                </p>
+
+            </div>
+
+
+            <div id="alertContainer" class="mb-3"></div>
+
+
+            <div class="row g-4">
+
+                <!-- MACHINE FORM -->
+
+                <div class="col-lg-5">
+
+                    <div class="management-card">
+
+                        <div class="management-icon">
+                            ⚙
+                        </div>
+
+                        <h3>Register Machine</h3>
+
+                        <p>
+                            Add a new industrial machine to the system
+                            using its name and model number.
+                        </p>
+
+
+                        <form id="machineForm">
+
+                            <div class="mb-3">
+
+                                <label class="form-label">
+                                    MACHINE NAME
+                                </label>
+
+                                <input type="text" class="form-control" id="machineName"
+                                    placeholder="e.g. Hydraulic Press" maxlength="255" required>
+
+                            </div>
+
+
+                            <div class="mb-4">
+
+                                <label class="form-label">
+                                    MACHINE MODEL
+                                </label>
+
+                                <input type="text" class="form-control" id="machineModel" placeholder="e.g. HP-2000"
+                                    maxlength="255" required>
+
+                            </div>
+
+
+                            <button type="submit" class="action-btn w-100" id="machineSubmit">
+                                + REGISTER MACHINE
+                            </button>
+
+                        </form>
+
+                    </div>
+
+                </div>
+
+
+                <!-- UPLOAD FORM -->
+
+                <div class="col-lg-7" id="upload">
+
+                    <div class="management-card">
+
+                        <div class="management-icon">
+                            ⇧
+                        </div>
+
+                        <h3>Upload Technical Manual</h3>
+
+                        <p>
+                            Upload a machine PDF manual. The system will
+                            extract its text and organize it page by page.
+                        </p>
+
+
+                        <form id="manualForm">
+
+                            <div class="mb-3">
+
+                                <label class="form-label">
+                                    SELECT MACHINE
+                                </label>
+
+                                <select class="form-select" id="manualMachine" required>
+
+                                    <option value="">
+                                        Select a registered machine
+                                    </option>
+
+                                </select>
+
+                            </div>
+
+
+                            <div class="row g-3">
+
+                                <div class="col-md-6">
+
+                                    <label class="form-label">
+                                        MANUAL NAME
+                                    </label>
+
+                                    <input type="text" class="form-control" id="manualName"
+                                        placeholder="Operation Manual" maxlength="255" required>
+
+                                </div>
+
+
+                                <div class="col-md-6">
+
+                                    <label class="form-label">
+                                        REVISION
+                                    </label>
+
+                                    <input type="text" class="form-control" id="manualRevision" placeholder="Rev 1.0"
+                                        maxlength="100" required>
+
+                                </div>
+
+
+                                <div class="col-12">
+
+                                    <label class="form-label">
+                                        PDF DOCUMENT
+                                    </label>
+
+                                    <input type="file" class="form-control" id="manualFile"
+                                        accept=".pdf,application/pdf" required>
+
+                                    <small class="text-muted">
+                                        PDF only · Maximum file size 25 MB
+                                    </small>
+
+                                </div>
+
+                            </div>
+
+
+                            <button type="submit" class="action-btn w-100 mt-4" id="uploadSubmit">
+                                ⇧ UPLOAD & PROCESS MANUAL
+                            </button>
+
+                        </form>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- MANUAL LIBRARY -->
+
+    <section class="section-wrap library-section" id="library">
+
+        <div class="container">
+
+            <div class="library-header">
+
+                <div>
+
+                    <div class="section-kicker">
+                        Centralized Repository
+                    </div>
+
+                    <h2 class="section-heading mb-1">
+                        Technical Library
+                    </h2>
+
+                    <p class="section-description mb-0">
+                        Browse uploaded manuals and access their source PDF files.
+                    </p>
+
+                </div>
+
+
+                <button class="action-btn" onclick="loadManuals()">
+                    ↻ REFRESH LIBRARY
+                </button>
+
+            </div>
+
+
+            <div class="table-responsive">
+
+                <table class="table table-hover">
+
+                    <thead>
+
+                        <tr>
+                            <th>#</th>
+                            <th>Manual Name</th>
+                            <th>Machine</th>
+                            <th>Model</th>
+                            <th>Revision</th>
+                            <th>Uploaded On</th>
+                            <th>Document</th>
+                        </tr>
+
+                    </thead>
+
+
+                    <tbody id="manualTableBody">
+
+                        <tr>
+                            <td colspan="7" class="empty-state">
+                                Loading technical documentation...
+                            </td>
+                        </tr>
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        </div>
+
+    </section>
+
 
     {% elif role == "Engineer" %}
 
-        <div class="card dashboard-card p-4 mt-4">
-            <h4>Engineer Dashboard</h4>
-            <p>Ask questions about machine manuals and find technical solutions.</p>
-            <button class="btn btn-primary" disabled>
-                Ask Assistant (Coming Soon)
-            </button>
+    <section class="section-wrap" id="roleContent">
+
+        <div class="container">
+
+            <div class="section-kicker">
+                Engineer Workspace
+            </div>
+
+            <h2 class="section-heading">
+                Technical Knowledge Center
+            </h2>
+
+            <p class="section-description">
+                Access machine documentation and find solutions
+                to engineering problems.
+            </p>
+
+            <div class="role-section mt-4">
+
+                <h3>Ask the Manual Assistant</h3>
+
+                <p class="text-muted">
+                    Intelligent manual-based question answering is coming soon.
+                </p>
+
+                <button class="action-btn" disabled>
+                    ASK ASSISTANT · COMING SOON
+                </button>
+
+            </div>
+
         </div>
+
+    </section>
+
 
     {% elif role == "Supervisor" %}
 
-        <div class="card dashboard-card p-4 mt-4">
-            <h4>Supervisor Dashboard</h4>
-            <p>Monitor engineer questions and review activity history.</p>
-            <button class="btn btn-primary" disabled>
-                View History (Coming Soon)
-            </button>
+    <section class="section-wrap" id="roleContent">
+
+        <div class="container">
+
+            <div class="section-kicker">
+                Supervisor Workspace
+            </div>
+
+            <h2 class="section-heading">
+                Operations Overview
+            </h2>
+
+            <p class="section-description">
+                Monitor engineer activity and review operational history.
+            </p>
+
+            <div class="role-section mt-4">
+
+                <h3>Activity Monitoring</h3>
+
+                <p class="text-muted">
+                    Engineer activity monitoring and history are coming soon.
+                </p>
+
+                <button class="action-btn" disabled>
+                    VIEW HISTORY · COMING SOON
+                </button>
+
+            </div>
+
         </div>
+
+    </section>
 
     {% endif %}
 
-</div>
 
-<script>
-    async function logout() {
-        try {
-            const response = await fetch("/api/logout/", {
-                method: "POST",
-                credentials: "same-origin",
-                headers: {
-                    "X-CSRFToken": getCookie("csrftoken")
+    <!-- FOOTER -->
+
+    <footer>
+
+        <div class="container d-flex flex-wrap justify-content-between gap-2">
+
+            <div>
+                <strong>MANUAL ASSISTANT</strong>
+                &nbsp; | &nbsp; ENGINEERING INTELLIGENCE
+            </div>
+
+            <div>
+                Industrial Documentation Management Platform
+            </div>
+
+        </div>
+
+    </footer>
+
+
+    <script>
+
+        // CSRF TOKEN
+
+        function getCookie(name) {
+
+            const cookies = document.cookie.split(";");
+
+            for (let cookie of cookies) {
+
+                cookie = cookie.trim();
+
+                if (cookie.startsWith(name + "=")) {
+
+                    return decodeURIComponent(
+                        cookie.substring(name.length + 1)
+                    );
+
                 }
+
+            }
+
+            return null;
+
+        }
+
+
+        // ALERT MESSAGES
+
+        function showAlert(message, type = "success") {
+
+            const container = document.getElementById("alertContainer");
+
+            if (!container) return;
+
+            const alert = document.createElement("div");
+
+            alert.className = `alert alert-${type} alert-dismissible fade show`;
+
+            const messageElement = document.createElement("span");
+
+            messageElement.textContent = message;
+
+            const closeButton = document.createElement("button");
+
+            closeButton.type = "button";
+            closeButton.className = "btn-close";
+            closeButton.setAttribute("data-bs-dismiss", "alert");
+
+            alert.appendChild(messageElement);
+            alert.appendChild(closeButton);
+
+            container.replaceChildren(alert);
+
+        }
+
+
+        // API ERROR HANDLING
+
+        function getErrorMessage(data) {
+
+            if (typeof data === "string") {
+                return data;
+            }
+
+            if (data && typeof data === "object") {
+
+                return Object.entries(data)
+                    .map(([field, errors]) => {
+
+                        const messages = Array.isArray(errors)
+                            ? errors.join(", ")
+                            : String(errors);
+
+                        return `${field}: ${messages}`;
+
+                    })
+                    .join(" | ");
+
+            }
+
+            return "Something went wrong. Please try again.";
+
+        }
+
+
+        async function getResponseData(response) {
+
+            const text = await response.text();
+
+            if (!text) return {};
+
+            try {
+                return JSON.parse(text);
+            } catch {
+                return { detail: text };
+            }
+
+        }
+
+
+        // LOAD MACHINES
+
+        async function loadMachines() {
+
+            const dropdown = document.getElementById("manualMachine");
+
+            if (!dropdown) return;
+
+            try {
+
+                const response = await fetch("/api/machines/", {
+                    credentials: "same-origin"
+                });
+
+                const machines = await getResponseData(response);
+
+                if (!response.ok) {
+                    throw new Error(getErrorMessage(machines));
+                }
+
+                dropdown.innerHTML = "";
+
+                const defaultOption = document.createElement("option");
+
+                defaultOption.value = "";
+                defaultOption.textContent = "Select a registered machine";
+
+                dropdown.appendChild(defaultOption);
+
+                machines.forEach(machine => {
+
+                    const option = document.createElement("option");
+
+                    option.value = machine.id;
+
+                    option.dataset.name = machine.name;
+                    option.dataset.model = machine.model;
+
+                    option.textContent =
+                        `${machine.name} (${machine.model})`;
+
+                    dropdown.appendChild(option);
+
+                });
+
+                const count = document.getElementById("machineCount");
+
+                if (count) {
+                    count.textContent = machines.length;
+                }
+
+            } catch (error) {
+
+                showAlert(error.message, "danger");
+
+            }
+
+        }
+
+
+        // REGISTER MACHINE
+
+        const machineForm = document.getElementById("machineForm");
+
+        if (machineForm) {
+
+            machineForm.addEventListener("submit", async function (event) {
+
+                event.preventDefault();
+
+                const button = document.getElementById("machineSubmit");
+
+                button.disabled = true;
+                button.textContent = "REGISTERING...";
+
+                const machineData = {
+
+                    name: document.getElementById("machineName").value.trim(),
+
+                    model: document.getElementById("machineModel").value.trim()
+
+                };
+
+                try {
+
+                    const response = await fetch("/api/machines/", {
+
+                        method: "POST",
+
+                        credentials: "same-origin",
+
+                        headers: {
+
+                            "Content-Type": "application/json",
+
+                            "X-CSRFToken": getCookie("csrftoken")
+
+                        },
+
+                        body: JSON.stringify(machineData)
+
+                    });
+
+                    const data = await getResponseData(response);
+
+                    if (!response.ok) {
+                        throw new Error(getErrorMessage(data));
+                    }
+
+                    showAlert("Machine registered successfully!", "success");
+
+                    machineForm.reset();
+
+                    await loadMachines();
+
+                } catch (error) {
+
+                    showAlert(error.message, "danger");
+
+                } finally {
+
+                    button.disabled = false;
+                    button.textContent = "+ REGISTER MACHINE";
+
+                }
+
             });
 
-            if (response.ok) {
-                window.location.href = "/login/";
-            } else {
-                alert("Logout failed. Please try again.");
-            }
-        } catch (error) {
-            alert("Unable to connect to the server.");
         }
-    }
 
-    function getCookie(name) {
-        const cookies = document.cookie.split(";");
 
-        for (let cookie of cookies) {
-            cookie = cookie.trim();
+        // UPLOAD MANUAL
 
-            if (cookie.startsWith(name + "=")) {
-                return decodeURIComponent(
-                    cookie.substring(name.length + 1)
+        const manualForm = document.getElementById("manualForm");
+
+        if (manualForm) {
+
+            manualForm.addEventListener("submit", async function (event) {
+
+                event.preventDefault();
+
+                const button = document.getElementById("uploadSubmit");
+
+                const dropdown = document.getElementById("manualMachine");
+
+                const selectedOption =
+                    dropdown.options[dropdown.selectedIndex];
+
+                if (!selectedOption || !selectedOption.value) {
+
+                    showAlert("Please select a registered machine.", "danger");
+
+                    return;
+
+                }
+
+                const file = document.getElementById("manualFile").files[0];
+
+                if (!file) {
+
+                    showAlert("Please select a PDF document.", "danger");
+
+                    return;
+
+                }
+
+                const formData = new FormData();
+
+                formData.append("machine_name", selectedOption.dataset.name);
+
+                formData.append("machine_model", selectedOption.dataset.model);
+
+                formData.append(
+                    "name",
+                    document.getElementById("manualName").value.trim()
                 );
-            }
+
+                formData.append(
+                    "revision",
+                    document.getElementById("manualRevision").value.trim()
+                );
+
+                formData.append("file", file);
+
+                button.disabled = true;
+                button.textContent = "UPLOADING & PROCESSING...";
+
+                try {
+
+                    const response = await fetch("/api/manuals/upload/", {
+
+                        method: "POST",
+
+                        credentials: "same-origin",
+
+                        headers: {
+
+                            "X-CSRFToken": getCookie("csrftoken")
+
+                        },
+
+                        body: formData
+
+                    });
+
+                    const data = await getResponseData(response);
+
+                    if (!response.ok) {
+                        throw new Error(getErrorMessage(data));
+                    }
+
+                    showAlert(
+                        "Manual uploaded and processed successfully!",
+                        "success"
+                    );
+
+                    manualForm.reset();
+
+                    await loadManuals();
+
+                } catch (error) {
+
+                    showAlert(error.message, "danger");
+
+                } finally {
+
+                    button.disabled = false;
+                    button.textContent = "⇧ UPLOAD & PROCESS MANUAL";
+
+                }
+
+            });
+
         }
 
-        return null;
-    }
-</script>
+
+        // LOAD MANUAL LIBRARY
+
+        async function loadManuals() {
+
+            const tableBody = document.getElementById("manualTableBody");
+
+            if (!tableBody) return;
+
+            tableBody.innerHTML = `
+            <tr>
+                <td colspan="7" class="empty-state">
+                    Loading technical documentation...
+                </td>
+            </tr>
+        `;
+
+            try {
+
+                const response = await fetch("/api/manuals/", {
+                    credentials: "same-origin"
+                });
+
+                const manuals = await getResponseData(response);
+
+                if (!response.ok) {
+                    throw new Error(getErrorMessage(manuals));
+                }
+
+                tableBody.innerHTML = "";
+
+                const count = document.getElementById("manualCount");
+
+                if (count) {
+                    count.textContent = manuals.length;
+                }
+
+                if (manuals.length === 0) {
+
+                    tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="empty-state">
+                            No technical manuals uploaded yet.
+                        </td>
+                    </tr>
+                `;
+
+                    return;
+
+                }
+
+                manuals.forEach((manual, index) => {
+
+                    const row = document.createElement("tr");
+
+                    const values = [
+
+                        index + 1,
+
+                        manual.name,
+
+                        manual.machine_name,
+
+                        manual.machine_model,
+
+                        manual.revision,
+
+                        manual.uploaded_at
+                            ? new Date(manual.uploaded_at).toLocaleDateString()
+                            : "-"
+
+                    ];
+
+                    values.forEach((value, cellIndex) => {
+
+                        const cell = document.createElement("td");
+
+                        if (cellIndex === 2 || cellIndex === 4) {
+
+                            const badge = document.createElement("span");
+
+                            badge.className = cellIndex === 2
+                                ? "machine-badge"
+                                : "revision-badge";
+
+                            badge.textContent = value ?? "-";
+
+                            cell.appendChild(badge);
+
+                        } else {
+
+                            cell.textContent = value ?? "-";
+
+                        }
+
+                        row.appendChild(cell);
+
+                    });
+
+
+                    const pdfCell = document.createElement("td");
+
+                    const pdfLink = document.createElement("a");
+
+                    pdfLink.href = `/api/manuals/${manual.id}/pdf/`;
+
+                    pdfLink.target = "_blank";
+
+                    pdfLink.rel = "noopener noreferrer";
+
+                    pdfLink.className = "pdf-link";
+
+                    pdfLink.textContent = "VIEW PDF ↗";
+
+                    pdfCell.appendChild(pdfLink);
+
+                    row.appendChild(pdfCell);
+
+                    tableBody.appendChild(row);
+
+                });
+
+            } catch (error) {
+
+                tableBody.innerHTML = "";
+
+                const row = document.createElement("tr");
+
+                const cell = document.createElement("td");
+
+                cell.colSpan = 7;
+                cell.className = "empty-state";
+                cell.textContent = error.message;
+
+                row.appendChild(cell);
+
+                tableBody.appendChild(row);
+
+            }
+
+        }
+
+
+        // LOGOUT
+
+        async function logout() {
+
+            try {
+
+                const response = await fetch("/api/logout/", {
+
+                    method: "POST",
+
+                    credentials: "same-origin",
+
+                    headers: {
+
+                        "X-CSRFToken": getCookie("csrftoken")
+
+                    }
+
+                });
+
+                if (response.ok) {
+
+                    window.location.href = "/login/";
+
+                } else {
+
+                    alert("Logout failed. Please try again.");
+
+                }
+
+            } catch (error) {
+
+                alert("Unable to connect to the server.");
+
+            }
+
+        }
+
+
+        // INITIALIZE DASHBOARD
+
+        document.addEventListener("DOMContentLoaded", function () {
+
+            if (document.getElementById("machineForm")) {
+
+                loadMachines();
+
+                loadManuals();
+
+            }
+
+        });
+
+    </script>
+
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
 </body>
+
 </html>
