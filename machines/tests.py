@@ -14,6 +14,8 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from .models import Chunk, Machine, Manual
+from .services import split_text_into_chunks
+
 
 User = get_user_model()
 
@@ -21,13 +23,17 @@ User = get_user_model()
 class MachineModelTests(TestCase):
 
     def test_machine_creation(self):
-        machine = Machine.objects.create(name="CNC Milling Machine", model="VF-2")
+        machine = Machine.objects.create(
+            name="CNC Milling Machine",
+            model="VF-2"
+        )
         self.assertEqual(str(machine), "CNC Milling Machine (VF-2)")
         self.assertEqual(machine.name, "CNC Milling Machine")
         self.assertEqual(machine.model, "VF-2")
 
     def test_machine_unique_together(self):
         Machine.objects.create(name="Haas Mill", model="VF-2")
+
         with self.assertRaises(IntegrityError):
             Machine.objects.create(name="Haas Mill", model="VF-2")
 
@@ -39,7 +45,10 @@ class ManualModelTests(TestCase):
             username="test_admin",
             password="TestPassword@123",
         )
-        self.machine = Machine.objects.create(name="Haas Lathe", model="ST-10")
+        self.machine = Machine.objects.create(
+            name="Haas Lathe",
+            model="ST-10"
+        )
 
     def test_manual_creation(self):
         manual = Manual.objects.create(
@@ -49,6 +58,7 @@ class ManualModelTests(TestCase):
             file="manuals/st10.pdf",
             uploaded_by=self.user,
         )
+
         self.assertEqual(str(manual), "ST-10 Operator Manual (Rev 1.0)")
         self.assertEqual(manual.machine, self.machine)
         self.assertEqual(manual.uploaded_by, self.user)
@@ -63,6 +73,7 @@ class ManualModelTests(TestCase):
             file="manuals/st10_service.pdf",
             uploaded_by=self.user,
         )
+
         self.assertIn(manual, self.machine.manuals.all())
         self.assertIn(manual, self.user.uploaded_manuals.all())
 
@@ -74,8 +85,10 @@ class ManualModelTests(TestCase):
             file="manuals/guide.pdf",
             uploaded_by=self.user,
         )
+
         self.user.delete()
         manual.refresh_from_db()
+
         self.assertIsNone(manual.uploaded_by)
 
     def test_machine_deletion_cascades_to_manual(self):
@@ -86,15 +99,20 @@ class ManualModelTests(TestCase):
             file="manuals/ref.pdf",
             uploaded_by=self.user,
         )
+
         manual_id = manual.id
         self.machine.delete()
+
         self.assertFalse(Manual.objects.filter(id=manual_id).exists())
 
 
 class ChunkModelTests(TestCase):
 
     def setUp(self):
-        self.machine = Machine.objects.create(name="Haas Drill", model="DT-1")
+        self.machine = Machine.objects.create(
+            name="Haas Drill",
+            model="DT-1"
+        )
         self.manual = Manual.objects.create(
             machine=self.machine,
             name="DT-1 User Guide",
@@ -108,6 +126,7 @@ class ChunkModelTests(TestCase):
             page_number=1,
             text="Chapter 1: Safety instructions.",
         )
+
         self.assertEqual(chunk.manual, self.manual)
         self.assertEqual(chunk.page_number, 1)
         self.assertEqual(chunk.text, "Chapter 1: Safety instructions.")
@@ -119,6 +138,7 @@ class ChunkModelTests(TestCase):
             page_number=0,
             text="Invalid zero page",
         )
+
         with self.assertRaises(ValidationError):
             chunk.full_clean()
 
@@ -128,8 +148,10 @@ class ChunkModelTests(TestCase):
             page_number=5,
             text="Page 5 content",
         )
+
         chunk_id = chunk.id
         self.manual.delete()
+
         self.assertFalse(Chunk.objects.filter(id=chunk_id).exists())
 
 
@@ -149,36 +171,40 @@ class ManualUploadAPITests(TestCase):
         self.client = APIClient()
         self.url = "/api/manuals/upload/"
 
-        # Ensure Groups exist
-        self.admin_group, _ = Group.objects.get_or_create(name="Administrator")
-        self.engineer_group, _ = Group.objects.get_or_create(name="Engineer")
-        self.supervisor_group, _ = Group.objects.get_or_create(name="Supervisor")
+        self.admin_group, _ = Group.objects.get_or_create(
+            name="Administrator"
+        )
+        self.engineer_group, _ = Group.objects.get_or_create(
+            name="Engineer"
+        )
+        self.supervisor_group, _ = Group.objects.get_or_create(
+            name="Supervisor"
+        )
 
-        # Administrator User
         self.admin_user = User.objects.create_user(
             username="admin_uploader",
             password="AdminPassword@123",
         )
         self.admin_user.groups.add(self.admin_group)
 
-        # Engineer User
         self.engineer_user = User.objects.create_user(
             username="engineer_user",
             password="EngineerPassword@123",
         )
         self.engineer_user.groups.add(self.engineer_group)
 
-        # Supervisor User
         self.supervisor_user = User.objects.create_user(
             username="supervisor_user",
             password="SupervisorPassword@123",
         )
         self.supervisor_user.groups.add(self.supervisor_group)
 
-    def _create_valid_pdf_file(self, filename="valid_manual.pdf", size_kb=1):
-        # Generate a genuine PDF using PyMuPDF
+    def _create_valid_pdf_file(
+        self,
+        filename="valid_manual.pdf",
+        size_kb=1
+    ):
         pdf = pymupdf.open()
-
         page = pdf.new_page()
         page.insert_text(
             (72, 72),
@@ -207,7 +233,11 @@ class ManualUploadAPITests(TestCase):
         }
 
         with override_settings(MEDIA_ROOT=self.temp_media):
-            response = self.client.post(self.url, data, format="multipart")
+            response = self.client.post(
+                self.url,
+                data,
+                format="multipart"
+            )
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertIn("id", response.data)
@@ -220,14 +250,18 @@ class ManualUploadAPITests(TestCase):
         self.assertNotIn("file", response.data)
         self.assertNotIn("file_url", response.data)
 
-        # Verify DB records
         machine = Machine.objects.get(name="Haas Mill", model="VF-2")
         manual = Manual.objects.get(id=response.data["id"])
+
         self.assertEqual(manual.machine, machine)
         self.assertEqual(manual.uploaded_by, self.admin_user)
 
     def test_upload_reuses_existing_machine(self):
-        existing_machine = Machine.objects.create(name="Haas Lathe", model="ST-10")
+        existing_machine = Machine.objects.create(
+            name="Haas Lathe",
+            model="ST-10"
+        )
+
         self.client.force_authenticate(user=self.admin_user)
         pdf_file = self._create_valid_pdf_file("st10_manual.pdf")
 
@@ -240,17 +274,25 @@ class ManualUploadAPITests(TestCase):
         }
 
         with override_settings(MEDIA_ROOT=self.temp_media):
-            response = self.client.post(self.url, data, format="multipart")
+            response = self.client.post(
+                self.url,
+                data,
+                format="multipart"
+            )
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data["machine_id"], existing_machine.id)
         self.assertEqual(
-            Machine.objects.filter(name="Haas Lathe", model="ST-10").count(),
+            Machine.objects.filter(
+                name="Haas Lathe",
+                model="ST-10"
+            ).count(),
             1,
         )
 
     def test_unauthenticated_request_rejected(self):
         pdf_file = self._create_valid_pdf_file()
+
         data = {
             "machine_name": "Haas Mill",
             "machine_model": "VF-2",
@@ -258,12 +300,18 @@ class ManualUploadAPITests(TestCase):
             "revision": "1.0",
             "file": pdf_file,
         }
+
         response = self.client.post(self.url, data, format="multipart")
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_403_FORBIDDEN
+        )
 
     def test_engineer_access_forbidden(self):
         self.client.force_authenticate(user=self.engineer_user)
         pdf_file = self._create_valid_pdf_file()
+
         data = {
             "machine_name": "Haas Mill",
             "machine_model": "VF-2",
@@ -271,11 +319,15 @@ class ManualUploadAPITests(TestCase):
             "revision": "1.0",
             "file": pdf_file,
         }
+
         response = self.client.post(self.url, data, format="multipart")
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_403_FORBIDDEN
+        )
 
     def test_duplicate_manual_revision(self):
-        # First upload succeeds
         self.client.force_authenticate(user=self.admin_user)
         pdf_file = self._create_valid_pdf_file("dup_manual.pdf")
 
@@ -288,26 +340,38 @@ class ManualUploadAPITests(TestCase):
         }
 
         with override_settings(MEDIA_ROOT=self.temp_media):
-            response1 = self.client.post(self.url, data, format="multipart")
+            response1 = self.client.post(
+                self.url,
+                data,
+                format="multipart"
+            )
 
-        self.assertEqual(response1.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(
+            response1.status_code,
+            status.HTTP_201_CREATED
+        )
 
-        # Second upload with same machine, name, revision should fail
         pdf_file2 = self._create_valid_pdf_file("dup_manual2.pdf")
         data2 = data.copy()
         data2["file"] = pdf_file2
 
         with override_settings(MEDIA_ROOT=self.temp_media):
-            response2 = self.client.post(self.url, data2, format="multipart")
+            response2 = self.client.post(
+                self.url,
+                data2,
+                format="multipart"
+            )
 
-        self.assertEqual(response2.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response2.status_code,
+            status.HTTP_400_BAD_REQUEST
+        )
         self.assertIn("non_field_errors", response2.data)
         self.assertIn(
             "A manual with this revision already exists for this machine.",
             str(response2.data),
         )
 
-        # Supervisor must also be forbidden
         self.client.force_authenticate(user=self.supervisor_user)
         pdf_file = self._create_valid_pdf_file()
 
@@ -320,10 +384,15 @@ class ManualUploadAPITests(TestCase):
         }
 
         response = self.client.post(self.url, data, format="multipart")
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_403_FORBIDDEN
+        )
 
     def test_reject_non_pdf_extension(self):
         self.client.force_authenticate(user=self.admin_user)
+
         txt_file = SimpleUploadedFile(
             "manual.txt",
             b"%PDF-1.4 text content",
@@ -339,16 +408,27 @@ class ManualUploadAPITests(TestCase):
         }
 
         with override_settings(MEDIA_ROOT=self.temp_media):
-            response = self.client.post(self.url, data, format="multipart")
+            response = self.client.post(
+                self.url,
+                data,
+                format="multipart"
+            )
 
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_400_BAD_REQUEST
+        )
         self.assertIn("file", response.data)
         self.assertTrue(
-            any(".pdf" in str(err).lower() for err in response.data["file"])
+            any(
+                ".pdf" in str(err).lower()
+                for err in response.data["file"]
+            )
         )
 
     def test_reject_invalid_pdf_magic_bytes(self):
         self.client.force_authenticate(user=self.admin_user)
+
         fake_pdf = SimpleUploadedFile(
             "fake.pdf",
             b"NOT_A_PDF_DOCUMENT_CONTENT",
@@ -364,13 +444,21 @@ class ManualUploadAPITests(TestCase):
         }
 
         with override_settings(MEDIA_ROOT=self.temp_media):
-            response = self.client.post(self.url, data, format="multipart")
+            response = self.client.post(
+                self.url,
+                data,
+                format="multipart"
+            )
 
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_400_BAD_REQUEST
+        )
         self.assertIn("file", response.data)
 
     def test_reject_empty_file(self):
         self.client.force_authenticate(user=self.admin_user)
+
         empty_file = SimpleUploadedFile(
             "empty.pdf",
             b"",
@@ -386,14 +474,25 @@ class ManualUploadAPITests(TestCase):
         }
 
         with override_settings(MEDIA_ROOT=self.temp_media):
-            response = self.client.post(self.url, data, format="multipart")
+            response = self.client.post(
+                self.url,
+                data,
+                format="multipart"
+            )
 
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_400_BAD_REQUEST
+        )
         self.assertIn("file", response.data)
 
     def test_reject_oversized_file(self):
         self.client.force_authenticate(user=self.admin_user)
-        oversized_content = b"%PDF-" + (b"X" * (25 * 1024 * 1024 + 10))
+
+        oversized_content = (
+            b"%PDF-" + (b"X" * (25 * 1024 * 1024 + 10))
+        )
+
         oversized_file = SimpleUploadedFile(
             "large.pdf",
             oversized_content,
@@ -409,10 +508,61 @@ class ManualUploadAPITests(TestCase):
         }
 
         with override_settings(MEDIA_ROOT=self.temp_media):
-            response = self.client.post(self.url, data, format="multipart")
+            response = self.client.post(
+                self.url,
+                data,
+                format="multipart"
+            )
 
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_400_BAD_REQUEST
+        )
         self.assertIn("file", response.data)
         self.assertTrue(
-            any("25 mb" in str(err).lower() for err in response.data["file"])
+            any(
+                "25 mb" in str(err).lower()
+                for err in response.data["file"]
+            )
         )
+
+
+class TextChunkingTests(TestCase):
+
+    def test_chunk_size_is_within_limit(self):
+        text = " ".join(f"word{i}" for i in range(450))
+        chunks = split_text_into_chunks(text)
+
+        self.assertGreater(len(chunks), 1)
+
+        for chunk in chunks:
+            self.assertLessEqual(len(chunk.split()), 250)
+
+    def test_chunks_have_30_word_overlap(self):
+        text = " ".join(f"word{i}" for i in range(450))
+        chunks = split_text_into_chunks(text)
+
+        self.assertGreaterEqual(len(chunks), 2)
+
+        first_words = chunks[0].split()
+        second_words = chunks[1].split()
+
+        self.assertEqual(first_words[-30:], second_words[:30])
+
+    def test_empty_text_returns_empty_list(self):
+        self.assertEqual(split_text_into_chunks(""), [])
+
+    def test_short_text_returns_one_chunk(self):
+        text = "This is a short test."
+        chunks = split_text_into_chunks(text)
+
+        self.assertEqual(len(chunks), 1)
+        self.assertEqual(chunks[0], text)
+
+    def test_overlap_must_be_smaller_than_chunk_size(self):
+        with self.assertRaises(ValueError):
+            split_text_into_chunks(
+                "sample text",
+                chunk_size=10,
+                overlap=10
+            )
