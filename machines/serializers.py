@@ -1,16 +1,29 @@
 from rest_framework import serializers
 
 from .models import Machine, Manual
+from .services import extract_pdf_text
 
 
 MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024  # 25 MB
 
 
 class ManualUploadSerializer(serializers.Serializer):
-    machine_name = serializers.CharField(max_length=255, trim_whitespace=True)
-    machine_model = serializers.CharField(max_length=255, trim_whitespace=True)
-    name = serializers.CharField(max_length=255, trim_whitespace=True)
-    revision = serializers.CharField(max_length=100, trim_whitespace=True)
+    machine_name = serializers.CharField(
+        max_length=255,
+        trim_whitespace=True
+    )
+    machine_model = serializers.CharField(
+        max_length=255,
+        trim_whitespace=True
+    )
+    name = serializers.CharField(
+        max_length=255,
+        trim_whitespace=True
+    )
+    revision = serializers.CharField(
+        max_length=100,
+        trim_whitespace=True
+    )
     file = serializers.FileField()
 
     def validate_file(self, value):
@@ -97,5 +110,17 @@ class ManualUploadSerializer(serializers.Serializer):
             file=uploaded_file,
             uploaded_by=uploaded_by,
         )
+
+        # Extract text from the uploaded PDF
+        try:
+            extract_pdf_text(manual)
+
+        except ValueError as error:
+            manual.file.delete(save=False)
+            manual.delete()
+
+            raise serializers.ValidationError({
+                "file": str(error)
+            })
 
         return manual

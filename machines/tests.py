@@ -1,5 +1,8 @@
+
 import shutil
 import tempfile
+
+import pymupdf
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
@@ -173,7 +176,18 @@ class ManualUploadAPITests(TestCase):
         self.supervisor_user.groups.add(self.supervisor_group)
 
     def _create_valid_pdf_file(self, filename="valid_manual.pdf", size_kb=1):
-        content = b"%PDF-1.4\n" + (b"0" * (size_kb * 1024)) + b"\n%%EOF"
+        # Generate a genuine PDF using PyMuPDF
+        pdf = pymupdf.open()
+
+        page = pdf.new_page()
+        page.insert_text(
+            (72, 72),
+            "This is valid test content for PDF extraction.",
+        )
+
+        content = pdf.tobytes()
+        pdf.close()
+
         return SimpleUploadedFile(
             filename,
             content,
@@ -230,7 +244,10 @@ class ManualUploadAPITests(TestCase):
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data["machine_id"], existing_machine.id)
-        self.assertEqual(Machine.objects.filter(name="Haas Lathe", model="ST-10").count(), 1)
+        self.assertEqual(
+            Machine.objects.filter(name="Haas Lathe", model="ST-10").count(),
+            1,
+        )
 
     def test_unauthenticated_request_rejected(self):
         pdf_file = self._create_valid_pdf_file()
@@ -260,7 +277,8 @@ class ManualUploadAPITests(TestCase):
     def test_duplicate_manual_revision(self):
         # First upload succeeds
         self.client.force_authenticate(user=self.admin_user)
-        pdf_file = self._create_valid_pdf_file('dup_manual.pdf')
+        pdf_file = self._create_valid_pdf_file("dup_manual.pdf")
+
         data = {
             "machine_name": "Haas Mill",
             "machine_model": "VF-2",
@@ -268,22 +286,31 @@ class ManualUploadAPITests(TestCase):
             "revision": "1.0",
             "file": pdf_file,
         }
+
         with override_settings(MEDIA_ROOT=self.temp_media):
             response1 = self.client.post(self.url, data, format="multipart")
+
         self.assertEqual(response1.status_code, status.HTTP_201_CREATED)
 
         # Second upload with same machine, name, revision should fail
-        pdf_file2 = self._create_valid_pdf_file('dup_manual2.pdf')
+        pdf_file2 = self._create_valid_pdf_file("dup_manual2.pdf")
         data2 = data.copy()
-        data2['file'] = pdf_file2
+        data2["file"] = pdf_file2
+
         with override_settings(MEDIA_ROOT=self.temp_media):
             response2 = self.client.post(self.url, data2, format="multipart")
-        self.assertEqual(response2.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('non_field_errors', response2.data)
-        self.assertIn('A manual with this revision already exists for this machine.', str(response2.data))
 
+        self.assertEqual(response2.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("non_field_errors", response2.data)
+        self.assertIn(
+            "A manual with this revision already exists for this machine.",
+            str(response2.data),
+        )
+
+        # Supervisor must also be forbidden
         self.client.force_authenticate(user=self.supervisor_user)
         pdf_file = self._create_valid_pdf_file()
+
         data = {
             "machine_name": "Haas Mill",
             "machine_model": "VF-2",
@@ -291,12 +318,18 @@ class ManualUploadAPITests(TestCase):
             "revision": "1.0",
             "file": pdf_file,
         }
+
         response = self.client.post(self.url, data, format="multipart")
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_reject_non_pdf_extension(self):
         self.client.force_authenticate(user=self.admin_user)
-        txt_file = SimpleUploadedFile("manual.txt", b"%PDF-1.4 text content", content_type="text/plain")
+        txt_file = SimpleUploadedFile(
+            "manual.txt",
+            b"%PDF-1.4 text content",
+            content_type="text/plain",
+        )
+
         data = {
             "machine_name": "Haas Mill",
             "machine_model": "VF-2",
@@ -304,15 +337,24 @@ class ManualUploadAPITests(TestCase):
             "revision": "1.0",
             "file": txt_file,
         }
+
         with override_settings(MEDIA_ROOT=self.temp_media):
             response = self.client.post(self.url, data, format="multipart")
+
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("file", response.data)
-        self.assertTrue(any(".pdf" in str(err).lower() for err in response.data["file"]))
+        self.assertTrue(
+            any(".pdf" in str(err).lower() for err in response.data["file"])
+        )
 
     def test_reject_invalid_pdf_magic_bytes(self):
         self.client.force_authenticate(user=self.admin_user)
-        fake_pdf = SimpleUploadedFile("fake.pdf", b"NOT_A_PDF_DOCUMENT_CONTENT", content_type="application/pdf")
+        fake_pdf = SimpleUploadedFile(
+            "fake.pdf",
+            b"NOT_A_PDF_DOCUMENT_CONTENT",
+            content_type="application/pdf",
+        )
+
         data = {
             "machine_name": "Haas Mill",
             "machine_model": "VF-2",
@@ -320,14 +362,21 @@ class ManualUploadAPITests(TestCase):
             "revision": "1.0",
             "file": fake_pdf,
         }
+
         with override_settings(MEDIA_ROOT=self.temp_media):
             response = self.client.post(self.url, data, format="multipart")
+
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("file", response.data)
 
     def test_reject_empty_file(self):
         self.client.force_authenticate(user=self.admin_user)
-        empty_file = SimpleUploadedFile("empty.pdf", b"", content_type="application/pdf")
+        empty_file = SimpleUploadedFile(
+            "empty.pdf",
+            b"",
+            content_type="application/pdf",
+        )
+
         data = {
             "machine_name": "Haas Mill",
             "machine_model": "VF-2",
@@ -335,15 +384,22 @@ class ManualUploadAPITests(TestCase):
             "revision": "1.0",
             "file": empty_file,
         }
+
         with override_settings(MEDIA_ROOT=self.temp_media):
             response = self.client.post(self.url, data, format="multipart")
+
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("file", response.data)
 
     def test_reject_oversized_file(self):
         self.client.force_authenticate(user=self.admin_user)
         oversized_content = b"%PDF-" + (b"X" * (25 * 1024 * 1024 + 10))
-        oversized_file = SimpleUploadedFile("large.pdf", oversized_content, content_type="application/pdf")
+        oversized_file = SimpleUploadedFile(
+            "large.pdf",
+            oversized_content,
+            content_type="application/pdf",
+        )
+
         data = {
             "machine_name": "Haas Mill",
             "machine_model": "VF-2",
@@ -351,8 +407,12 @@ class ManualUploadAPITests(TestCase):
             "revision": "1.0",
             "file": oversized_file,
         }
+
         with override_settings(MEDIA_ROOT=self.temp_media):
             response = self.client.post(self.url, data, format="multipart")
+
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("file", response.data)
-        self.assertTrue(any("25 mb" in str(err).lower() for err in response.data["file"]))
+        self.assertTrue(
+            any("25 mb" in str(err).lower() for err in response.data["file"])
+        )
