@@ -1,3 +1,4 @@
+
 from rest_framework import serializers
 
 from .models import Machine, Manual
@@ -5,6 +6,45 @@ from .services import extract_pdf_text
 
 
 MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024  # 25 MB
+
+
+class MachineSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Machine
+        fields = ["id", "name", "model"]
+
+    def validate(self, data):
+        name = data.get("name", "").strip()
+        model = data.get("model", "").strip()
+
+        if Machine.objects.filter(name=name, model=model).exists():
+            raise serializers.ValidationError(
+                "This machine already exists."
+            )
+
+        return data
+
+
+class ManualListSerializer(serializers.ModelSerializer):
+    machine_name = serializers.CharField(
+        source="machine.name",
+        read_only=True,
+    )
+    machine_model = serializers.CharField(
+        source="machine.model",
+        read_only=True,
+    )
+
+    class Meta:
+        model = Manual
+        fields = [
+            "id",
+            "name",
+            "revision",
+            "machine_name",
+            "machine_model",
+            "uploaded_at",
+        ]
 
 
 class ManualUploadSerializer(serializers.Serializer):
