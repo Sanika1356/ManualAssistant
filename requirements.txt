@@ -4,3 +4,7 @@ psycopg2-binary==2.9.13
 python-dotenv==1.2.4
 pytest==9.2.0
 pytest-django==4.14.0
+pymupdf
+sentence-transformers
+chromadb
+anthropic
