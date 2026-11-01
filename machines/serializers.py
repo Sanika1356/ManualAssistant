@@ -3,6 +3,7 @@ from rest_framework import serializers
 
 from .models import Machine, Manual
 from .services import extract_pdf_text
+from retrieval.vectorstore import index_manual
 
 
 MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024  # 25 MB
@@ -161,6 +162,18 @@ class ManualUploadSerializer(serializers.Serializer):
 
             raise serializers.ValidationError({
                 "file": str(error)
+            })
+
+        # Add the new chunks to the search index so Engineers can find them.
+        try:
+            index_manual(manual)
+
+        except Exception as error:
+            manual.file.delete(save=False)
+            manual.delete()
+
+            raise serializers.ValidationError({
+                "file": f"The manual could not be added to the search index: {error}"
             })
 
         return manual

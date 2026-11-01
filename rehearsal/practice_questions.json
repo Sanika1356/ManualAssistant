@@ -1,0 +1,19 @@
+[
+  {"machine": "Kitchen A", "expect": "answerable", "question": "What temperature should I bake lasagna at?", "keyword": "180"},
+  {"machine": "Kitchen A", "expect": "answerable", "question": "How often should the oven door gasket be replaced?", "keyword": "12 months"},
+  {"machine": "Kitchen A", "expect": "answerable", "question": "Where is the fire extinguisher located?", "keyword": "north door"},
+  {"machine": "Kitchen B", "expect": "answerable", "question": "How long do I bake the lasagna?", "keyword": "35 minutes"},
+  {"machine": "Kitchen B", "expect": "answerable", "question": "What temperature do I roast the chicken at?", "keyword": "190"},
+
+  {"machine": "Kitchen A", "expect": "other_machine", "question": "How often do I feed the sourdough starter?"},
+  {"machine": "Kitchen A", "expect": "other_machine", "question": "What temperature do I bake the sourdough loaf at?"},
+  {"machine": "Kitchen B", "expect": "other_machine", "question": "How often should the oven thermostat be calibrated?"},
+  {"machine": "Kitchen B", "expect": "other_machine", "question": "Where is the fire extinguisher located?"},
+  {"machine": "Kitchen B", "expect": "other_machine", "question": "How long does pizza dough need to proof?"},
+
+  {"machine": "Kitchen A", "expect": "unsupported", "question": "What is the capital of France?"},
+  {"machine": "Kitchen A", "expect": "unsupported", "question": "How do I reset the office wifi router?"},
+  {"machine": "Kitchen B", "expect": "unsupported", "question": "Who won the last cricket world cup?"},
+  {"machine": "Kitchen B", "expect": "unsupported", "question": "What is the warranty period of the dishwasher?"},
+  {"machine": "Kitchen B", "expect": "unsupported", "question": "How do I change a flat car tire?"}
+]

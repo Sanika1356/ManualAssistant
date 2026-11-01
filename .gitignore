@@ -31,3 +31,6 @@ htmlcov/
 .DS_Store
 Thumbs.db
 .sf/
+
+# Vector store (rebuild with: python manage.py reindex --all)
+chroma_db/
