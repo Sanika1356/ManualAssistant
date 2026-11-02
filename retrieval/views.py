@@ -5,11 +5,12 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.permissions import IsEngineer
+from accounts.permissions import IsEngineer, IsSupervisor
 
 from .llm import LLMUnavailable
 from .serializers import AskRequestSerializer, QuestionDetailSerializer
 from .services import answer_question
+from .models import Question
 
 logger = logging.getLogger(__name__)
 
@@ -50,4 +51,37 @@ class AskAPIView(APIView):
         return Response(
             QuestionDetailSerializer(question).data,
             status=status.HTTP_201_CREATED,
+        )
+class QuestionHistoryAPIView(APIView):
+    """
+    GET /api/history/
+
+    Engineers can view their own question history.
+    Supervisors can view all engineers' question history.
+    """
+
+    permission_classes = [
+        IsAuthenticated,
+        IsEngineer | IsSupervisor,
+    ]
+
+    def get(self, request, *args, **kwargs):
+
+        questions = Question.objects.select_related(
+            "user", "machine"
+        ).prefetch_related(
+            "sources"
+        )
+
+        if request.user.groups.filter(name="Engineer").exists():
+            questions = questions.filter(user=request.user)
+
+        serializer = QuestionDetailSerializer(
+            questions,
+            many=True
+        )
+
+        return Response(
+            serializer.data,
+            status=status.HTTP_200_OK
         )

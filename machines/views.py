@@ -27,7 +27,21 @@ class MachineListCreateAPIView(APIView):
     Allows Administrators to create and view machines.
     """
 
-    permission_classes = [IsAuthenticated, IsAdministrator]
+    permission_classes = [IsAuthenticated]
+
+    def get_permissions(self):
+        if self.request.method == "GET":
+            permission_classes = [
+                IsAuthenticated,
+                IsAdministrator | IsEngineer | IsSupervisor
+            ]
+        else:
+            permission_classes = [
+                IsAuthenticated,
+                IsAdministrator
+            ]
+
+        return [permission() for permission in permission_classes]
 
     def get(self, request, *args, **kwargs):
         machines = Machine.objects.all()

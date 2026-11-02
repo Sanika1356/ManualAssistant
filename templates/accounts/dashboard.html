@@ -1141,19 +1141,89 @@
                 to engineering problems.
             </p>
 
+           <div class="role-section mt-4">
+
+    <h3>Ask the Manual Assistant</h3>
+
+    <p class="text-muted">
+        Select a machine and ask questions about its technical manuals.
+    </p>
+
+    <div class="mb-3">
+        <label for="askMachine" class="form-label">Select Machine</label>
+        <select id="askMachine" class="form-select">
+            <option value="">Loading machines...</option>
+        </select>
+    </div>
+
+    <div class="mb-3">
+        <label for="askQuestion" class="form-label">Your Question</label>
+        <textarea
+            id="askQuestion"
+            class="form-control"
+            rows="4"
+            maxlength="1000"
+            placeholder="Type your machine-related question here..."
+        ></textarea>
+    </div>
+
+    <button type="button" class="action-btn" id="askSubmit">
+        ASK ASSISTANT
+    </button>
+
+    <div id="askMessage" class="mt-3"></div>
+
+    <div id="askAnswer" class="mt-4"></div>
+            <!-- ENGINEER QUESTION HISTORY -->
+
             <div class="role-section mt-4">
 
-                <h3>Ask the Manual Assistant</h3>
+                <h3>My Question History</h3>
 
                 <p class="text-muted">
-                    Intelligent manual-based question answering is coming soon.
+                    View your previously asked questions and their answers.
                 </p>
 
-                <button class="action-btn" disabled>
-                    ASK ASSISTANT · COMING SOON
+                <button
+                    type="button"
+                    class="action-btn mb-4"
+                    id="refreshHistory">
+                    ↻ REFRESH HISTORY
                 </button>
 
+                <div id="historyMessage" class="mb-3"></div>
+
+                <div class="table-responsive">
+
+                    <table class="table table-hover">
+
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Machine</th>
+                                <th>Question</th>
+                                <th>Answer</th>
+                                <th>Date</th>
+                                <th>Sources</th>
+                            </tr>
+                        </thead>
+
+                        <tbody id="historyTableBody">
+
+                            <tr>
+                                <td colspan="6" class="empty-state">
+                                    Loading question history...
+                                </td>
+                            </tr>
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
             </div>
+</div>
 
         </div>
 
@@ -1180,17 +1250,51 @@
 
             <div class="role-section mt-4">
 
-                <h3>Activity Monitoring</h3>
+    <h3>All Engineers' Question History</h3>
 
-                <p class="text-muted">
-                    Engineer activity monitoring and history are coming soon.
-                </p>
+    <p class="text-muted">
+        Review questions asked by all engineers, their answers,
+        machines, and supporting manual references.
+    </p>
 
-                <button class="action-btn" disabled>
-                    VIEW HISTORY · COMING SOON
-                </button>
+    <button
+        type="button"
+        class="action-btn mb-4"
+        id="refreshSupervisorHistory">
+        ↻ REFRESH HISTORY
+    </button>
 
-            </div>
+    <div id="supervisorHistoryMessage" class="mb-3"></div>
+
+    <div class="table-responsive">
+
+        <table class="table table-hover">
+
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Engineer</th>
+                    <th>Machine</th>
+                    <th>Question</th>
+                    <th>Answer</th>
+                    <th>Date</th>
+                    <th>Sources</th>
+                </tr>
+            </thead>
+
+            <tbody id="supervisorHistoryTableBody">
+                <tr>
+                    <td colspan="7">
+                        Loading question history...
+                    </td>
+                </tr>
+            </tbody>
+
+        </table>
+
+    </div>
+
+</div>
 
         </div>
 
@@ -1378,6 +1482,65 @@
             }
 
         }
+        // LOAD MACHINES FOR ENGINEER ASK SCREEN
+
+async function loadAskMachines() {
+
+    const dropdown = document.getElementById("askMachine");
+
+    if (!dropdown) return;
+
+    try {
+
+        const response = await fetch("/api/machines/", {
+            credentials: "same-origin"
+        });
+
+        const machines = await getResponseData(response);
+
+        if (!response.ok) {
+            throw new Error(getErrorMessage(machines));
+        }
+
+        dropdown.innerHTML = "";
+
+        const defaultOption = document.createElement("option");
+        defaultOption.value = "";
+        defaultOption.textContent = "Select a machine";
+
+        dropdown.appendChild(defaultOption);
+
+        if (machines.length === 0) {
+            defaultOption.textContent = "No machines registered yet";
+            return;
+        }
+
+        machines.forEach(machine => {
+
+            const option = document.createElement("option");
+
+            option.value = machine.id;
+            option.textContent = `${machine.name} (${machine.model})`;
+
+            dropdown.appendChild(option);
+
+        });
+
+    } catch (error) {
+
+        dropdown.innerHTML = "";
+
+        const option = document.createElement("option");
+        option.value = "";
+        option.textContent = "Unable to load machines";
+
+        dropdown.appendChild(option);
+
+        console.error("Machine loading error:", error);
+
+    }
+
+}
 
 
         // REGISTER MACHINE
@@ -1697,7 +1860,128 @@
 
         }
 
+// ASK THE MANUAL ASSISTANT
 
+const askButton = document.getElementById("askSubmit");
+
+if (askButton) {
+
+    askButton.addEventListener("click", async function () {
+
+        const machine = document.getElementById("askMachine").value;
+        const question = document.getElementById("askQuestion").value.trim();
+
+        const message = document.getElementById("askMessage");
+        const answerContainer = document.getElementById("askAnswer");
+
+        message.textContent = "";
+        answerContainer.innerHTML = "";
+
+        if (!machine) {
+            message.textContent = "Please select a machine.";
+            return;
+        }
+
+        if (!question) {
+            message.textContent = "Please enter your question.";
+            return;
+        }
+
+        askButton.disabled = true;
+        askButton.textContent = "THINKING...";
+
+        try {
+
+            const response = await fetch("/api/ask/", {
+
+                method: "POST",
+
+                credentials: "same-origin",
+
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": getCookie("csrftoken")
+                },
+
+                body: JSON.stringify({
+                    machine: machine,
+                    question: question
+                })
+
+            });
+
+            const data = await getResponseData(response);
+
+            if (!response.ok) {
+                throw new Error(getErrorMessage(data));
+            }
+
+            const heading = document.createElement("h4");
+            heading.textContent = "Answer";
+
+            const answerText = document.createElement("p");
+            answerText.textContent = data.answer || "No answer was returned.";
+
+            answerContainer.appendChild(heading);
+            answerContainer.appendChild(answerText);
+
+            if (data.sources && data.sources.length > 0) {
+
+                const sourceHeading = document.createElement("h5");
+                sourceHeading.textContent = "Sources";
+
+                answerContainer.appendChild(sourceHeading);
+
+                data.sources.forEach(source => {
+
+                    const sourceDiv = document.createElement("div");
+                    sourceDiv.className = "mb-3";
+
+                    const sourceInfo = document.createElement("p");
+
+                    sourceInfo.textContent =
+                        `${source.manual_name} | Revision: ${source.revision} | Page: ${source.page_number}`;
+
+                    sourceDiv.appendChild(sourceInfo);
+
+                    const passage = document.createElement("p");
+                    passage.textContent = source.text;
+
+                    sourceDiv.appendChild(passage);
+
+                    if (source.pdf_url) {
+
+                        const pdfLink = document.createElement("a");
+
+                        pdfLink.href = source.pdf_url;
+                        pdfLink.target = "_blank";
+                        pdfLink.rel = "noopener noreferrer";
+                        pdfLink.textContent = "View PDF source";
+
+                        sourceDiv.appendChild(pdfLink);
+
+                    }
+
+                    answerContainer.appendChild(sourceDiv);
+
+                });
+
+            }
+
+        } catch (error) {
+
+            message.textContent = error.message;
+
+        } finally {
+
+            askButton.disabled = false;
+            askButton.textContent = "ASK ASSISTANT";
+
+        }
+
+    });
+
+}
         // LOGOUT
 
         async function logout() {
@@ -1738,18 +2022,218 @@
 
 
         // INITIALIZE DASHBOARD
+async function loadHistory() {
+    const tableBody = document.getElementById("historyTableBody");
+    const message = document.getElementById("historyMessage");
 
-        document.addEventListener("DOMContentLoaded", function () {
+    if (!tableBody) return;
 
-            if (document.getElementById("machineForm")) {
+    tableBody.innerHTML = `
+        <tr>
+            <td colspan="6">Loading question history...</td>
+        </tr>
+    `;
 
-                loadMachines();
+    try {
+        const response = await fetch("/api/history/", {
+            method: "GET",
+            credentials: "same-origin"
+        });
 
-                loadManuals();
+        const data = await response.json();
 
+        if (!response.ok) {
+            throw new Error(data.detail || "Could not load history.");
+        }
+
+        tableBody.replaceChildren();
+
+        if (!data.length) {
+            const row = document.createElement("tr");
+            const cell = document.createElement("td");
+
+            cell.colSpan = 6;
+            cell.textContent = "No questions found yet.";
+            row.appendChild(cell);
+            tableBody.appendChild(row);
+            return;
+        }
+
+        data.forEach((question, index) => {
+            const row = document.createElement("tr");
+
+            const values = [
+                index + 1,
+                question.machine_name || "Unknown machine",
+                question.text || "",
+                question.answer || "Not answered",
+                question.created_at
+                    ? new Date(question.created_at).toLocaleString()
+                    : "-"
+            ];
+
+            values.forEach(value => {
+                const cell = document.createElement("td");
+                cell.textContent = value;
+                row.appendChild(cell);
+            });
+
+            const sourceCell = document.createElement("td");
+
+            if (question.sources && question.sources.length) {
+                question.sources.forEach(source => {
+                    const link = document.createElement("a");
+                    link.textContent =
+                        `${source.manual_name} - Page ${source.page_number}`;
+
+                    link.href = source.pdf_url;
+                    link.target = "_blank";
+                    link.rel = "noopener noreferrer";
+
+                    sourceCell.appendChild(link);
+                    sourceCell.appendChild(document.createElement("br"));
+                });
+            } else {
+                sourceCell.textContent = "No sources";
             }
 
+            row.appendChild(sourceCell);
+            tableBody.appendChild(row);
         });
+
+        if (message) message.textContent = "";
+
+    } catch (error) {
+        tableBody.replaceChildren();
+
+        const row = document.createElement("tr");
+        const cell = document.createElement("td");
+
+        cell.colSpan = 6;
+        cell.textContent = error.message;
+
+                row.appendChild(cell);
+        tableBody.appendChild(row);
+    }
+}
+
+// Supervisor history starts here
+async function loadSupervisorHistory() {
+    const tableBody = document.getElementById("supervisorHistoryTableBody");
+
+    if (!tableBody) return;
+
+    tableBody.textContent = "Loading question history...";
+
+    try {
+        const response = await fetch("/api/history/", {
+            method: "GET",
+            credentials: "same-origin"
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.detail || "Could not load history.");
+        }
+
+        tableBody.replaceChildren();
+
+        if (!data.length) {
+            const row = document.createElement("tr");
+            const cell = document.createElement("td");
+
+            cell.colSpan = 7;
+            cell.textContent = "No questions found yet.";
+
+            row.appendChild(cell);
+            tableBody.appendChild(row);
+            return;
+        }
+
+        data.forEach((question, index) => {
+            const row = document.createElement("tr");
+
+            const values = [
+                index + 1,
+                question.username || "Unknown",
+                question.machine_name || "Unknown machine",
+                question.text || "",
+                question.answer || "Not answered",
+                question.created_at
+                    ? new Date(question.created_at).toLocaleString()
+                    : "-"
+            ];
+
+            values.forEach(value => {
+                const cell = document.createElement("td");
+                cell.textContent = value;
+                row.appendChild(cell);
+            });
+
+            const sourceCell = document.createElement("td");
+
+            if (question.sources && question.sources.length) {
+                question.sources.forEach(source => {
+                    const link = document.createElement("a");
+
+                    link.textContent =
+                        `${source.manual_name} - Page ${source.page_number}`;
+
+                    link.href = source.pdf_url;
+                    link.target = "_blank";
+                    link.rel = "noopener noreferrer";
+
+                    sourceCell.appendChild(link);
+                    sourceCell.appendChild(document.createElement("br"));
+                });
+            } else {
+                sourceCell.textContent = "No sources";
+            }
+
+            row.appendChild(sourceCell);
+            tableBody.appendChild(row);
+        });
+
+    } catch (error) {
+        tableBody.textContent = error.message;
+    }
+}
+
+
+document.addEventListener("DOMContentLoaded", function () {
+
+    // Administrator dashboard
+    if (document.getElementById("machineForm")) {
+        loadMachines();
+        loadManuals();
+    }
+
+    // Engineer dashboard
+    if (document.getElementById("askMachine")) {
+        loadAskMachines();
+    }
+
+    // Engineer question history
+    if (document.getElementById("historyTableBody")) {
+        loadHistory();
+
+        document.getElementById("refreshHistory").addEventListener("click", function () {
+            loadHistory();
+        });
+    }
+
+    // Supervisor question history
+    if (document.getElementById("supervisorHistoryTableBody")) {
+        loadSupervisorHistory();
+
+        document.getElementById("refreshSupervisorHistory").addEventListener("click", function () {
+            loadSupervisorHistory();
+        });
+    }
+
+});
+    
 
     </script>
 

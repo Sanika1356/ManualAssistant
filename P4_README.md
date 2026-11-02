@@ -72,6 +72,6 @@ python manage.py runserver
 
 Open the application at:
 
-`http://127.0.0.1:8000/login/`
+http://127.0.0.1:8000/login/
 
 **Note:** This document describes the P4 module scope and current development status. Update the implementation details and API endpoints after completing integration and testing.
