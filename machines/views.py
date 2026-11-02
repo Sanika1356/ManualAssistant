@@ -30,15 +30,29 @@ class MachineListCreateAPIView(APIView):
 
     def get_permissions(self):
         if self.request.method == "GET":
+
             return [IsAuthenticated()]
 
         return [IsAuthenticated(), IsAdministrator()]
+
+            return [
+                IsAuthenticated(),
+                (IsAdministrator | IsEngineer | IsSupervisor)(),
+            ]
+
+        return [
+            IsAuthenticated(),
+            IsAdministrator(),
+        ]
 
     def get(self, request, *args, **kwargs):
         machines = Machine.objects.all()
         serializer = MachineSerializer(machines, many=True)
 
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(
+            serializer.data,
+            status=status.HTTP_200_OK,
+        )
 
     def post(self, request, *args, **kwargs):
         serializer = MachineSerializer(data=request.data)
@@ -68,12 +82,15 @@ class ManualListAPIView(APIView):
         manuals = Manual.objects.select_related("machine").all()
         serializer = ManualListSerializer(manuals, many=True)
 
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(
+            serializer.data,
+            status=status.HTTP_200_OK,
+        )
 
 
 class ManualUploadAPIView(APIView):
     """
-    API endpoint for Administrators to upload PDF manuals for machines.
+    Allows Administrators to upload PDF manuals.
     """
 
     parser_classes = [MultiPartParser, FormParser]
@@ -111,9 +128,8 @@ class ManualUploadAPIView(APIView):
 
 class ManualPDFViewAPIView(APIView):
     """
-    Protected endpoint for viewing uploaded PDF manuals.
-
-    Only Administrators, Engineers and Supervisors can view manuals.
+    Allows Administrators, Engineers and Supervisors
+    to view uploaded PDF manuals.
     """
 
     permission_classes = [
@@ -122,7 +138,6 @@ class ManualPDFViewAPIView(APIView):
     ]
 
     def get(self, request, manual_id, *args, **kwargs):
-
         manual = get_object_or_404(Manual, id=manual_id)
 
         if not manual.file:
