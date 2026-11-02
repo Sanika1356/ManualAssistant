@@ -1,4 +1,3 @@
-
 from django.http import FileResponse
 from django.shortcuts import get_object_or_404
 
@@ -96,8 +95,10 @@ class ManualUploadAPIView(APIView):
         response_data = {
             "id": manual.id,
             "name": manual.name,
+            "document_id": manual.document_id,
             "revision": manual.revision,
             "machine_id": manual.machine.id,
+            "machine_code": manual.machine.machine_code,
             "machine_name": manual.machine.name,
             "machine_model": manual.machine.model,
             "uploaded_at": manual.uploaded_at.isoformat(),

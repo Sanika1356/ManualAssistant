@@ -932,3 +932,51 @@ class ManualPDFViewAPITests(TestCase):
             response.status_code,
             status.HTTP_404_NOT_FOUND,
         )
+
+
+class MachineAndDocumentIdTests(TestCase):
+    """Machine IDs and Document IDs are saved, shown and kept unique."""
+
+    def setUp(self):
+        self.client = APIClient()
+        group, _ = Group.objects.get_or_create(name="Administrator")
+        user = get_user_model().objects.create_user(username="id_admin", password="Pass@12345")
+        user.groups.add(group)
+        self.client.force_authenticate(user=user)
+
+    def test_machine_id_is_saved_and_listed(self):
+        response = self.client.post(
+            "/api/machines/",
+            {"machine_code": " M-HP200 ", "name": "Press", "model": "HP-200"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["machine_code"], "M-HP200")
+
+        listed = self.client.get("/api/machines/")
+        self.assertEqual(listed.data[0]["machine_code"], "M-HP200")
+
+    def test_same_machine_id_cannot_be_used_twice(self):
+        Machine.objects.create(machine_code="M-HP200", name="Press", model="HP-200")
+        response = self.client.post(
+            "/api/machines/",
+            {"machine_code": "M-HP200", "name": "Other", "model": "X"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Machine ID", str(response.data))
+
+    def test_machines_without_an_id_are_still_allowed(self):
+        Machine.objects.create(name="A", model="1")
+        Machine.objects.create(name="B", model="2")
+        self.assertEqual(Machine.objects.filter(machine_code="").count(), 2)
+
+    def test_manual_list_shows_both_ids(self):
+        machine = Machine.objects.create(machine_code="M-HP200", name="Press", model="HP-200")
+        Manual.objects.create(
+            machine=machine, name="Ops", revision="1.0",
+            document_id="HP-OPS-01", file="manuals/ops.pdf",
+        )
+        data = self.client.get("/api/manuals/").data[0]
+        self.assertEqual(data["document_id"], "HP-OPS-01")
+        self.assertEqual(data["machine_code"], "M-HP200")

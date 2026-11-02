@@ -922,6 +922,18 @@
                             <div class="mb-3">
 
                                 <label class="form-label">
+                                    MACHINE ID
+                                </label>
+
+                                <input type="text" class="form-control" id="machineCode"
+                                    placeholder="e.g. M-HP200" maxlength="50" required>
+
+                            </div>
+
+
+                            <div class="mb-3">
+
+                                <label class="form-label">
                                     MACHINE NAME
                                 </label>
 
@@ -992,6 +1004,18 @@
 
 
                             <div class="row g-3">
+
+                                <div class="col-12">
+
+                                    <label class="form-label">
+                                        DOCUMENT ID
+                                    </label>
+
+                                    <input type="text" class="form-control" id="manualDocumentId"
+                                        placeholder="e.g. HP-OPS-01" maxlength="50" required>
+
+                                </div>
+
 
                                 <div class="col-md-6">
 
@@ -1092,7 +1116,9 @@
 
                         <tr>
                             <th>#</th>
+                            <th>Document ID</th>
                             <th>Manual Name</th>
+                            <th>Machine ID</th>
                             <th>Machine</th>
                             <th>Model</th>
                             <th>Revision</th>
@@ -1106,7 +1132,7 @@
                     <tbody id="manualTableBody">
 
                         <tr>
-                            <td colspan="7" class="empty-state">
+                            <td colspan="9" class="empty-state">
                                 Loading technical documentation...
                             </td>
                         </tr>
@@ -1397,6 +1423,8 @@
 
                 const machineData = {
 
+                    machine_code: document.getElementById("machineCode").value.trim(),
+
                     name: document.getElementById("machineName").value.trim(),
 
                     model: document.getElementById("machineModel").value.trim()
@@ -1493,6 +1521,11 @@
                 formData.append("machine_model", selectedOption.dataset.model);
 
                 formData.append(
+                    "document_id",
+                    document.getElementById("manualDocumentId").value.trim()
+                );
+
+                formData.append(
                     "name",
                     document.getElementById("manualName").value.trim()
                 );
@@ -1566,7 +1599,7 @@
 
             tableBody.innerHTML = `
             <tr>
-                <td colspan="7" class="empty-state">
+                <td colspan="9" class="empty-state">
                     Loading technical documentation...
                 </td>
             </tr>
@@ -1596,7 +1629,7 @@
 
                     tableBody.innerHTML = `
                     <tr>
-                        <td colspan="7" class="empty-state">
+                        <td colspan="9" class="empty-state">
                             No technical manuals uploaded yet.
                         </td>
                     </tr>
@@ -1614,7 +1647,11 @@
 
                         index + 1,
 
+                        manual.document_id || "-",
+
                         manual.name,
+
+                        manual.machine_code || "-",
 
                         manual.machine_name,
 
@@ -1632,11 +1669,11 @@
 
                         const cell = document.createElement("td");
 
-                        if (cellIndex === 2 || cellIndex === 4) {
+                        if (cellIndex === 4 || cellIndex === 6) {
 
                             const badge = document.createElement("span");
 
-                            badge.className = cellIndex === 2
+                            badge.className = cellIndex === 4
                                 ? "machine-badge"
                                 : "revision-badge";
 
@@ -1685,7 +1722,7 @@
 
                 const cell = document.createElement("td");
 
-                cell.colSpan = 7;
+                cell.colSpan = 9;
                 cell.className = "empty-state";
                 cell.textContent = error.message;
 
