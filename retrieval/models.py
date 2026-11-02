@@ -7,6 +7,10 @@ from machines.models import Chunk, Machine, Manual
 class Question(models.Model):
     """A question asked by an Engineer, together with the saved answer."""
 
+    class Status(models.TextChoices):
+        ANSWERED = "answered", "Answered"
+        INSUFFICIENT_EVIDENCE = "insufficient_evidence", "Insufficient evidence"
+
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -19,16 +23,24 @@ class Question(models.Model):
     )
     text = models.TextField()
     answer = models.TextField(blank=True)
-    # False means the manuals did not contain enough information.
-    answered = models.BooleanField(default=False)
+    # INSUFFICIENT_EVIDENCE means the manuals did not contain enough information.
+    status = models.CharField(
+        max_length=30,
+        choices=Status.choices,
+        default=Status.INSUFFICIENT_EVIDENCE,
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ["-created_at", "-id"]
 
+    @property
+    def answered(self):
+        """Yes/no shortcut, worked out from status so the two can never disagree."""
+        return self.status == self.Status.ANSWERED
+
     def __str__(self):
-        state = "answered" if self.answered else "no answer"
-        return f"Question {self.pk} ({state}): {self.text[:50]}"
+        return f"Question {self.pk} ({self.status}): {self.text[:50]}"
 
 
 class QuestionSource(models.Model):
