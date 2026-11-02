@@ -9,3 +9,5 @@ sentence-transformers
 chromadb
 anthropic
 groq
+gunicorn
+whitenoise
