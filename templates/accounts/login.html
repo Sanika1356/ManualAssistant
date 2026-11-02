@@ -188,11 +188,20 @@
                     })
                 });
 
+                const contentType = response.headers.get("content-type") || "";
+                if (!contentType.includes("application/json")) {
+                    throw new Error(
+                        `Login service returned an unexpected response ` +
+                        `(HTTP ${response.status}). Check the server logs.`
+                    );
+                }
+
                 const data = await response.json();
 
                 if (!response.ok) {
                     throw new Error(
-                        data.error || "Login failed. Check your credentials."
+                        data.error || data.detail ||
+                        "Login failed. Check your credentials."
                     );
                 }
 
