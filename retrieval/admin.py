@@ -12,8 +12,8 @@ class QuestionSourceInline(admin.TabularInline):
 
 @admin.register(Question)
 class QuestionAdmin(admin.ModelAdmin):
-    list_display = ("id", "user", "machine", "short_text", "answered", "created_at")
-    list_filter = ("answered", "machine")
+    list_display = ("id", "user", "machine", "short_text", "status", "created_at")
+    list_filter = ("status", "machine")
     search_fields = ("text", "answer", "user__username")
     inlines = [QuestionSourceInline]
 

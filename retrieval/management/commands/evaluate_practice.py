@@ -1,15 +1,23 @@
 """
-Runs a list of practice questions and suggests a value for RAG_MIN_SCORE.
+Runs the practice questions and reports OK or WRONG for each one.
+It also suggests a value for RAG_MIN_SCORE.
 
     python manage.py evaluate_practice
     python manage.py evaluate_practice --with-llm
+    python manage.py evaluate_practice --file rehearsal/practice_questions_real.json
 
 Each question in the JSON file looks like this:
-    {"machine": "Kitchen A", "question": "...",
-     "expect": "answerable" | "other_machine" | "unsupported",
-     "keyword": "text the correct passage or answer must contain"}
+    {"id": 13, "machine": "HP-200", "question": "...",
+     "expect_status": "answered" | "insufficient_evidence",
+     "keywords": ["text that must appear"],
+     "sources": [{"doc": "HP-OPS-01", "page": 2}, {"doc": "HP-MNT-01", "page": 3}],
+     "note": "free text for the team"}
+
+"machine" is matched against the machine model first (for example HP-200),
+then against the machine name.
 """
 import json
+import re
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -21,6 +29,8 @@ from retrieval.llm import LLMUnavailable
 from retrieval.models import Question
 
 User = get_user_model()
+
+DOCUMENT_IDS = ("HP-OPS-01", "HP-MNT-01", "AC-OM-01")
 
 
 def suggest_threshold(answerable_scores, refused_scores):
@@ -46,11 +56,59 @@ def suggest_threshold(answerable_scores, refused_scores):
     return round(best_value, 3), False
 
 
+def normalise(text):
+    """Lower case and single spaces, so '110  BAR' matches '110 bar'."""
+    return re.sub(r"\s+", " ", (text or "").lower()).strip()
+
+
+def find_machine(label):
+    machine = Machine.objects.filter(model__iexact=label).first()
+    if machine is None:
+        machine = Machine.objects.filter(name__icontains=label).first()
+    return machine
+
+
+def _id_text(item):
+    """The words that can identify the document of a hit or a saved source."""
+    parts = [
+        getattr(item, "document_id", "") or "",
+        getattr(item, "manual_name", "") or "",
+    ]
+    return " ".join(parts).upper()
+
+
+def check_sources(expected_sources, found):
+    """
+    found is a list of (id_text, page) pairs.
+    Returns (problems, page_only). When the document IDs are not in the data
+    yet (before Person 2 adds them), only the page numbers can be checked.
+    """
+    page_only = not any(
+        code in id_text for id_text, _page in found for code in DOCUMENT_IDS
+    )
+    problems = []
+    for source in expected_sources:
+        doc = source["doc"].upper()
+        page = source["page"]
+        ok = any(
+            found_page == page and (page_only or doc in id_text)
+            for id_text, found_page in found
+        )
+        if not ok:
+            problems.append(f"missing {source['doc']} p{page}")
+    return problems, page_only
+
+
+def check_keywords(keywords, text):
+    blob = normalise(text)
+    return [f"missing '{word}'" for word in keywords if normalise(word) not in blob]
+
+
 class Command(BaseCommand):
     help = "Run the practice questions and suggest a RAG_MIN_SCORE."
 
     def add_arguments(self, parser):
-        parser.add_argument("--file", default="rehearsal/practice_questions.json")
+        parser.add_argument("--file", default="rehearsal/practice_questions_real.json")
         parser.add_argument("--with-llm", action="store_true",
                             help="Also call the AI model for each question.")
         parser.add_argument("--threshold", type=float, default=None,
@@ -68,7 +126,8 @@ class Command(BaseCommand):
             threshold = float(settings.RAG_MIN_SCORE)
 
         answerable_scores, refused_scores = [], []
-        wrong_count = 0
+        wrong = []
+        page_only_used = False
 
         # With --with-llm the questions go through the full pipeline, which
         # saves them. A temporary user is used so they can be cleaned up after.
@@ -77,54 +136,73 @@ class Command(BaseCommand):
             runner, _ = User.objects.get_or_create(username="practice_runner")
 
         self.stdout.write(f"Threshold in use: {threshold}\n")
-        self.stdout.write(f"{'expected':<15}{'score':>6}  {'result':<7} question")
+        self.stdout.write(f"{'#':>3} {'machine':<7} {'expected':<22}{'score':>6}  {'result':<6} question")
 
         for item in questions:
-            machine = Machine.objects.filter(name__icontains=item["machine"]).first()
+            machine = find_machine(item["machine"])
             if machine is None:
                 raise CommandError(f"No machine found matching {item['machine']!r}")
 
-            expected = item["expect"]
-            keyword = (item.get("keyword") or "").lower()
+            expected = item["expect_status"]
+            keywords = item.get("keywords", [])
+            expected_sources = item.get("sources", [])
 
             hits = vectorstore.search(machine.id, item["question"], k=settings.RAG_TOP_K)
             best_score = hits[0].score if hits else 0.0
-            if expected == "answerable":
+            if expected == "answered":
                 answerable_scores.append(best_score)
             else:
                 refused_scores.append(best_score)
+
+            problems = []
 
             if options["with_llm"]:
                 try:
                     saved = services.answer_question(runner, machine, item["question"])
                 except LLMUnavailable as error:
                     raise CommandError(f"The AI service is not available: {error}")
-                answered = saved.answered
-                has_keyword = keyword in saved.answer.lower()
+                got_status = "answered" if saved.answered else "insufficient_evidence"
+                saved_sources = list(saved.sources.all())
+                found = [(_id_text(s), s.page_number) for s in saved_sources]
+                text = saved.answer + " " + " ".join(s.text for s in saved_sources)
             else:
-                answered = best_score >= threshold
-                top_text = " ".join(hit.text for hit in hits[:2]).lower()
-                has_keyword = keyword in top_text
+                # No AI: judge only what the search would hand to the AI.
+                got_status = "answered" if best_score >= threshold else "insufficient_evidence"
+                used = [hit for hit in hits if hit.score >= threshold]
+                found = [(_id_text(hit), hit.page) for hit in used]
+                text = " ".join(hit.text for hit in used)
 
-            if expected == "answerable":
-                correct = answered and has_keyword
-            else:
-                correct = not answered
+            if got_status != expected:
+                problems.append(f"status is {got_status}, expected {expected}")
 
+            if expected == "answered":
+                problems += check_keywords(keywords, text)
+                source_problems, page_only = check_sources(expected_sources, found)
+                page_only_used = page_only_used or page_only
+                problems += source_problems
+
+            correct = not problems
             if not correct:
-                wrong_count += 1
+                wrong.append(item.get("id", "?"))
 
             style = self.style.SUCCESS if correct else self.style.ERROR
             self.stdout.write(style(
-                f"{expected:<15}{best_score:>6.3f}  "
-                f"{'OK' if correct else 'WRONG':<7} {item['question'][:70]}"
+                f"{item.get('id', ''):>3} {item['machine']:<7} {expected:<22}"
+                f"{best_score:>6.3f}  {'OK' if correct else 'WRONG':<6} {item['question'][:60]}"
             ))
+            for problem in problems:
+                self.stdout.write(style(f"      - {problem}"))
 
         if runner:
             Question.objects.filter(user=runner).delete()
             runner.delete()
 
         self.stdout.write("")
+        if page_only_used:
+            self.stdout.write(self.style.WARNING(
+                "Note: document IDs are not in the data yet, so sources were "
+                "checked by page number only."
+            ))
         if answerable_scores and refused_scores:
             suggested, clean_gap = suggest_threshold(answerable_scores, refused_scores)
             self.stdout.write(f"Lowest score of an answerable question : {min(answerable_scores):.3f}")
@@ -139,4 +217,6 @@ class Command(BaseCommand):
                     "Run with --with-llm so the model's own check helps with the rest."
                 ))
 
-        self.stdout.write(f"\n{len(questions) - wrong_count} of {len(questions)} behaved correctly.")
+        self.stdout.write(f"\n{len(questions) - len(wrong)} of {len(questions)} behaved correctly.")
+        if wrong:
+            self.stdout.write(f"Wrong question numbers: {', '.join(str(n) for n in wrong)}")
