@@ -1,4 +1,3 @@
-
 import pymupdf
 
 from django.db import transaction
@@ -40,11 +39,24 @@ def split_text_into_chunks(text, chunk_size=CHUNK_SIZE, overlap=CHUNK_OVERLAP):
     return chunks
 
 
+def build_page_header(manual, page_number):
+    """First line of a chunk, for example HP-OPS-01 | M-HP200 | Rev 1.0 | Page 2."""
+    parts = [
+        manual.document_id or manual.name,
+        manual.machine.machine_code,
+        f"Rev {manual.revision}",
+        f"Page {page_number}",
+    ]
+    return " | ".join(part for part in parts if part)
+
+
 def extract_pdf_text(manual):
     """
-    Extract PDF text page-by-page.
-    Split each page into chunks and preserve its original page number.
-    Save extracted chunks in the database.
+    Extract PDF text page-by-page and save one chunk per page.
+
+    Keeping each page whole means a key sentence is never cut away from the
+    rest of its page, and every chunk maps to exactly one PDF page. The first
+    line of each chunk says which document and page it came from.
     """
 
     extracted_chunks = []
@@ -64,16 +76,16 @@ def extract_pdf_text(manual):
                 if not page_text:
                     continue
 
-                page_chunks = split_text_into_chunks(page_text)
+                # Tidy line breaks and repeated spaces from the PDF.
+                page_text = " ".join(page_text.split())
 
-                for chunk_text in page_chunks:
-                    extracted_chunks.append(
-                        Chunk(
-                            manual=manual,
-                            page_number=page_number,
-                            text=chunk_text,
-                        )
+                extracted_chunks.append(
+                    Chunk(
+                        manual=manual,
+                        page_number=page_number,
+                        text=f"{build_page_header(manual, page_number)}\n{page_text}",
                     )
+                )
 
             if not extracted_chunks:
                 raise ValueError(
