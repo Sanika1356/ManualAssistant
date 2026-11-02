@@ -35,16 +35,6 @@ class MachineListCreateAPIView(APIView):
 
         return [IsAuthenticated(), IsAdministrator()]
 
-            return [
-                IsAuthenticated(),
-                (IsAdministrator | IsEngineer | IsSupervisor)(),
-            ]
-
-        return [
-            IsAuthenticated(),
-            IsAdministrator(),
-        ]
-
     def get(self, request, *args, **kwargs):
         machines = Machine.objects.all()
         serializer = MachineSerializer(machines, many=True)
