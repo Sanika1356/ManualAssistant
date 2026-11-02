@@ -13,4 +13,5 @@ urlpatterns = [
     # API endpoints
     path("api/", include("accounts.urls")),
     path("api/", include("machines.urls")),
+    path("api/", include("retrieval.urls")),
 ]
