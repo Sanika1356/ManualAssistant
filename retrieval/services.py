@@ -26,10 +26,10 @@ SYSTEM_PROMPT = f"""You answer questions for factory engineers using ONLY the nu
 Rules:
 1. Use only facts written in the passages. Never use outside knowledge and never guess.
 2. Cite every passage you used by number in square brackets, for example [1] or [2][3]. Use plain square brackets only. Never cite a number that was not provided.
-3. If the passages do not clearly contain the answer, reply with exactly {NOT_ENOUGH_MARKER} and nothing else. This includes prices, suppliers, torque values, wiring, repair steps, cooling or waiting times, predicted failure dates, and anything not about this machine, unless the passages state them.
+3. If the passages do not contain the answer, reply with exactly {NOT_ENOUGH_MARKER} and nothing else. This includes prices, suppliers, torque values, wiring, repair steps, cooling or waiting times, predicted failure dates, and anything not about this machine, unless the passages state them. Rules 6 and 9 say when to answer instead of refusing.
 4. If the question has several parts and the answer spans several passages, answer every part and cite each passage used. If one part is not in the passages, answer the rest and say plainly that part is not in the manuals.
 5. If a passage says a part, value or alarm belongs to a different machine, it is not information about this machine. Never present it as this machine's. If that is the only match, reply with {NOT_ENOUGH_MARKER}.
-6. Keep actions apart. Checking, cleaning and replacing are different actions with different intervals, so give the interval for the action asked about. Do not convert an interval into another unit (hours into months, for example). If the manual gives no interval in the unit asked for, say so and give the interval it does state.
+6. Keep actions and items apart. Checking, cleaning and replacing are different actions with different intervals, and each part or fluid has its own interval. Give only the interval stated for that exact item and action, and never take a value from a neighbouring item. Schedule tables appear as flattened text, where each row reads: interval, then item, then what to record. Do not convert an interval into another unit (hours into months, for example). If the passages give an interval for the item but not in the unit asked for, do not refuse: say no interval in that unit is specified, and give the stated interval.
 7. When a limit says "whichever comes first", the task is due as soon as any one limit is reached. Compare the numbers in the question with each limit and state the result.
 8. When a value is given, compare it with the limits in the passages and give the action for the band it falls in. A value above a warning limit but below a stop limit is not a stop condition.
 9. Safety: never give steps to adjust a setting or bypass a protection, and never approve operating or returning the machine to service. If the passages forbid what was asked, say it is not allowed, cite the passage, and give only the actions the passages state.
@@ -123,9 +123,16 @@ def parse_citations(answer_text, passage_count):
     return sorted(cited)
 
 
-def normalize_citations(answer_text):
-    """Rewrite citation styles some models use, such as 【1】 or 【1†source】, as [1]."""
-    return re.sub(r"[【［]\s*(\d+)[^】］\]]*[】］\]]", r"[\1]", answer_text)
+def clean_reply(answer_text):
+    """
+    Tidy what the model sent, so the checks and the screen see plain text.
+
+    Citation styles such as 【1】 or 【1†source】 become [1], special spaces such
+    as the narrow one in "12 months" become normal spaces, and ** marks go.
+    """
+    text = re.sub(r"[【［]\s*(\d+)[^】］\]]*[】］\]]", r"[\1]", answer_text)
+    text = re.sub(r"[\u00a0\u2000-\u200a\u202f\u205f\u3000]", " ", text)
+    return text.replace("**", "").strip()
 
 
 def citations_are_valid(answer_text, passage_count):
@@ -193,12 +200,12 @@ def answer_question(user, machine, question_text):
     hits = [hit for hit in hits if hit.score >= _manual_min_score()]
 
     prompt = build_user_prompt(question_text, hits)
-    reply = normalize_citations(llm.generate(SYSTEM_PROMPT, prompt))
+    reply = clean_reply(llm.generate(SYSTEM_PROMPT, prompt))
 
     # An answer with missing or invented citations cannot be shown. Ask once
     # more, then refuse rather than guess which passages support it.
     if not _is_refusal(reply) and not citations_are_valid(reply, len(hits)):
-        reply = normalize_citations(llm.generate(SYSTEM_PROMPT, prompt + CITATION_REMINDER))
+        reply = clean_reply(llm.generate(SYSTEM_PROMPT, prompt + CITATION_REMINDER))
 
     if _is_refusal(reply) or not citations_are_valid(reply, len(hits)):
         return _save(user, machine, question_text, NOT_ENOUGH_MESSAGE, [], [])

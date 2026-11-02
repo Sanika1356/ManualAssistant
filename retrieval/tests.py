@@ -205,6 +205,12 @@ class CitationCheckTests(RetrievalTestCase):
             self.assertEqual(response.data["answer"], "180 degrees [1].")
             self.assertEqual(len(response.data["sources"]), 1)
 
+    def test_special_spaces_and_bold_marks_are_removed(self):
+        with mock.patch("retrieval.llm.generate", return_value="**180\u202fdegrees** [1]."):
+            response = self.ask(self.machine_a, self.QUESTION)
+
+        self.assertEqual(response.data["answer"], "180 degrees [1].")
+
     def test_uncited_answer_is_retried_once_then_saved_when_fixed(self):
         replies = ["180 degrees.", "180 degrees [1]."]
         with mock.patch("retrieval.llm.generate", side_effect=replies) as fake_model:
