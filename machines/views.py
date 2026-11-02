@@ -24,10 +24,15 @@ from .serializers import (
 
 class MachineListCreateAPIView(APIView):
     """
-    Allows Administrators to create and view machines.
+    All authenticated users can view machines.
+    Only Administrators can create machines.
     """
 
-    permission_classes = [IsAuthenticated, IsAdministrator]
+    def get_permissions(self):
+        if self.request.method == "GET":
+            return [IsAuthenticated()]
+
+        return [IsAuthenticated(), IsAdministrator()]
 
     def get(self, request, *args, **kwargs):
         machines = Machine.objects.all()
