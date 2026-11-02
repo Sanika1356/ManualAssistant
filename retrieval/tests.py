@@ -116,6 +116,7 @@ class WrongMachineTests(RetrievalTestCase):
 
         fake_model.assert_not_called()
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["status"], "insufficient_evidence")
         self.assertFalse(response.data["answered"])
         self.assertEqual(response.data["answer"], NOT_ENOUGH_MESSAGE)
         self.assertEqual(response.data["sources"], [])
@@ -144,6 +145,7 @@ class AskEndpointTests(RetrievalTestCase):
             response = self.ask(self.machine_a, LASAGNA_QUESTION)
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["status"], "answered")
         self.assertTrue(response.data["answered"])
 
         source = response.data["sources"][0]
@@ -155,6 +157,7 @@ class AskEndpointTests(RetrievalTestCase):
         saved = Question.objects.get(pk=response.data["id"])
         self.assertEqual(saved.user, self.engineer)
         self.assertEqual(saved.machine, self.machine_a)
+        self.assertEqual(saved.status, Question.Status.ANSWERED)
         self.assertTrue(saved.answered)
         self.assertEqual(saved.sources.count(), 1)
 
@@ -162,10 +165,11 @@ class AskEndpointTests(RetrievalTestCase):
         with mock.patch("retrieval.llm.generate", return_value=NOT_ENOUGH_MARKER):
             response = self.ask(self.machine_a, LASAGNA_QUESTION)
 
+        self.assertEqual(response.data["status"], "insufficient_evidence")
         self.assertFalse(response.data["answered"])
         self.assertEqual(response.data["answer"], NOT_ENOUGH_MESSAGE)
         self.assertEqual(QuestionSource.objects.count(), 0)
-        self.assertFalse(Question.objects.get().answered)
+        self.assertEqual(Question.objects.get().status, Question.Status.INSUFFICIENT_EVIDENCE)
 
     def test_only_cited_passages_are_saved_as_sources(self):
         reply = "Replace the gasket every 12 months [1]."

@@ -6,7 +6,7 @@ A question is treated as "not enough information" in two places:
      RAG_MIN_SCORE. This saves a model call and avoids guessing.
   2. After the model is called, if the model itself says the passages do not
      contain the answer.
-Both cases are saved the same way, with answered set to False.
+Both cases are saved the same way, with status set to insufficient_evidence.
 """
 import re
 
@@ -83,7 +83,11 @@ def parse_citations(answer_text, passage_count):
 
 def _save(user, machine, question_text, answer, hits, cited_numbers):
     """Save the question and, when it was answered, the passages it used."""
-    answered = bool(cited_numbers)
+    status = (
+        Question.Status.ANSWERED
+        if cited_numbers
+        else Question.Status.INSUFFICIENT_EVIDENCE
+    )
 
     with transaction.atomic():
         question = Question.objects.create(
@@ -91,7 +95,7 @@ def _save(user, machine, question_text, answer, hits, cited_numbers):
             machine=machine,
             text=question_text,
             answer=answer,
-            answered=answered,
+            status=status,
         )
 
         chunks_by_id = {

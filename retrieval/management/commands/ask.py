@@ -29,7 +29,7 @@ class Command(BaseCommand):
             raise CommandError(f"The AI service is not available: {error}")
 
         self.stdout.write(f"\nMachine  : {machine}")
-        self.stdout.write(f"Answered : {question.answered}")
+        self.stdout.write(f"Status   : {question.status}")
         self.stdout.write(f"Answer   : {question.answer}\n")
 
         for source in question.sources.all():
