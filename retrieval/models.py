@@ -73,6 +73,7 @@ class QuestionSource(models.Model):
     )
     # The number used to cite this passage in the answer, for example [1].
     passage_number = models.PositiveIntegerField()
+    document_id = models.CharField(max_length=50, blank=True, default="")
     manual_name = models.CharField(max_length=255)
     revision = models.CharField(max_length=100)
     page_number = models.PositiveIntegerField()

@@ -2,7 +2,9 @@
 import os
 import shutil
 import tempfile
+import unittest
 from io import StringIO
+from pathlib import Path
 import pymupdf
 
 from django.contrib.auth import get_user_model
@@ -1061,3 +1063,32 @@ class LoadPackTests(TestCase):
 
         self.assertEqual(Machine.objects.count(), 0)
         self.assertEqual(Manual.objects.count(), 0)
+        
+
+REAL_PACK = Path(os.environ.get("STUDENT_PACK", Path.home() / "Student_Pack"))
+
+
+@unittest.skipUnless((REAL_PACK / "machine_manual_index.csv").is_file(), "Real student pack not found")
+@override_settings(RAG_EMBEDDING_BACKEND="hash", CHROMA_PATH=None)
+class RealPackTests(TestCase):
+    """Checks the organisers' three real PDFs. Skipped if the pack is not on this laptop."""
+
+    def setUp(self):
+        media = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, media, ignore_errors=True)
+        override = override_settings(MEDIA_ROOT=media)
+        override.enable()
+        self.addCleanup(override.disable)
+        call_command("load_pack", str(REAL_PACK), stdout=StringIO())
+
+    def test_nine_pages_are_stored(self):
+        self.assertEqual(Machine.objects.count(), 2)
+        self.assertEqual(Manual.objects.count(), 3)
+        self.assertEqual(Chunk.objects.count(), 9)
+
+    def test_known_text_is_on_the_right_page(self):
+        expected = [("HP-MNT-01", 2, "E42"), ("HP-OPS-01", 2, "E17")]
+        for document_id, page, phrase in expected:
+            chunk = Chunk.objects.get(manual__document_id=document_id, page_number=page)
+            self.assertIn(phrase, chunk.text)
+            self.assertIn(f"Page {page}", chunk.text.split("\n")[0])

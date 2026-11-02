@@ -105,7 +105,7 @@ def build_user_prompt(question_text, hits):
     passages = []
     for number, hit in enumerate(hits, start=1):
         passages.append(
-            f'<passage number="{number}" manual="{hit.manual_name}" '
+                        f'<passage number="{number}" document="{hit.document_id}" manual="{hit.manual_name}" '
             f'revision="{hit.revision}" page="{hit.page}">\n'
             f"{hit.text}\n"
             f"</passage>"
@@ -174,6 +174,7 @@ def _save(user, machine, question_text, answer, hits, cited_numbers):
                 chunk=chunks_by_id.get(hit.chunk_id),
                 manual_id=hit.manual_id,
                 passage_number=number,
+                document_id=hit.document_id,
                 manual_name=hit.manual_name,
                 revision=hit.revision,
                 page_number=hit.page,
