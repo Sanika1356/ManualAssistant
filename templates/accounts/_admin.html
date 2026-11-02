@@ -1,0 +1,248 @@
+<main class="page">
+    <h1 class="page-title">Machines and manuals</h1>
+    <p class="page-lede">Register a machine, then upload its manuals. Engineers can ask questions as soon as a manual is uploaded.</p>
+
+    <div id="adminNotice" aria-live="polite"></div>
+
+    <div class="row g-4 mb-4">
+        <div class="col-lg-4">
+            <section class="panel h-100">
+                <div class="panel-body">
+                    <h2 class="panel-title">Register a machine</h2>
+                    <p class="panel-note">Use the ID from your machine list.</p>
+                    <form id="machineForm">
+                        <div class="mb-3">
+                            <label class="form-label" for="machineCode">Machine ID</label>
+                            <input class="form-control" id="machineCode" maxlength="50" placeholder="M-HP200" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="machineName">Machine name</label>
+                            <input class="form-control" id="machineName" maxlength="255" placeholder="Hydraulic forming press" required>
+                        </div>
+                        <div class="mb-4">
+                            <label class="form-label" for="machineModel">Model</label>
+                            <input class="form-control" id="machineModel" maxlength="255" placeholder="HP-200" required>
+                        </div>
+                        <button class="btn btn-main" id="machineSubmit" type="submit">Register machine</button>
+                    </form>
+                </div>
+            </section>
+        </div>
+
+        <div class="col-lg-8">
+            <section class="panel h-100">
+                <div class="panel-body">
+                    <h2 class="panel-title">Upload a manual</h2>
+                    <p class="panel-note">PDF with readable text, up to 25 MB. Page numbers are kept for citations.</p>
+                    <form id="manualForm">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label" for="manualMachine">Machine</label>
+                                <select class="form-select" id="manualMachine" required>
+                                    <option value="">Choose a machine</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label" for="manualDocumentId">Document ID</label>
+                                <input class="form-control" id="manualDocumentId" maxlength="50" placeholder="HP-OPS-01" required>
+                            </div>
+                            <div class="col-md-8">
+                                <label class="form-label" for="manualName">Manual name</label>
+                                <input class="form-control" id="manualName" maxlength="255" placeholder="HP-200 Operations" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label" for="manualRevision">Revision</label>
+                                <input class="form-control" id="manualRevision" maxlength="100" placeholder="1.0" required>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label" for="manualFile">PDF file</label>
+                                <input class="form-control" id="manualFile" type="file" accept=".pdf,application/pdf" required>
+                            </div>
+                        </div>
+                        <button class="btn btn-main mt-4" id="uploadSubmit" type="submit">Upload manual</button>
+                    </form>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <section class="panel mb-4" aria-labelledby="libraryTitle">
+        <div class="panel-body pb-3">
+            <div class="row g-2 align-items-end">
+                <div class="col-md">
+                    <h2 class="panel-title" id="libraryTitle">Manual library</h2>
+                    <p class="panel-note mb-0" id="manualCount"></p>
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label" for="manualSearch">Search manuals</label>
+                    <input class="form-control" id="manualSearch" type="search" placeholder="Document ID, manual or machine">
+                </div>
+            </div>
+        </div>
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr><th>Document ID</th><th>Manual</th><th>Revision</th><th>Machine ID</th><th>Machine</th><th>Uploaded</th><th>PDF</th></tr>
+                </thead>
+                <tbody id="manualRows"><tr><td colspan="7" class="empty">Loading manuals</td></tr></tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="panel" aria-labelledby="machinesTitle">
+        <div class="panel-body pb-3">
+            <h2 class="panel-title" id="machinesTitle">Registered machines</h2>
+            <p class="panel-note mb-0" id="machineCount"></p>
+        </div>
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead><tr><th>Machine ID</th><th>Name</th><th>Model</th><th>Manuals</th></tr></thead>
+                <tbody id="machineRows"><tr><td colspan="4" class="empty">Loading machines</td></tr></tbody>
+            </table>
+        </div>
+    </section>
+</main>
+
+<script>
+    let machines = [];
+    let manuals = [];
+    const notice = document.getElementById("adminNotice");
+
+    function plural(count, word) {
+        return `${count} ${word}${count === 1 ? "" : "s"}`;
+    }
+
+    function drawMachines() {
+        const select = document.getElementById("manualMachine");
+        const chosen = select.value;
+        select.replaceChildren(el("option", { value: "", text: "Choose a machine" }));
+        machines.forEach(machine => {
+            const label = `${machine.machine_code ? machine.machine_code + ", " : ""}${machine.name} (${machine.model})`;
+            select.append(el("option", { value: machine.id, text: label }));
+        });
+        select.value = chosen;
+
+        document.getElementById("machineCount").textContent = plural(machines.length, "machine");
+        const rows = document.getElementById("machineRows");
+        rows.replaceChildren();
+        if (!machines.length) {
+            rows.append(el("tr", {}, el("td", { colspan: 4, class: "empty", text: "No machines yet. Register your first machine above." })));
+            return;
+        }
+        machines.forEach(machine => {
+            const count = manuals.filter(m => m.machine_name === machine.name && m.machine_model === machine.model).length;
+            rows.append(el("tr", {},
+                el("td", { class: "code", text: machine.machine_code || "Not set" }),
+                el("td", { text: machine.name }),
+                el("td", { text: machine.model }),
+                el("td", { text: count })
+            ));
+        });
+    }
+
+    function drawManuals() {
+        const term = document.getElementById("manualSearch").value.trim().toLowerCase();
+        const rows = document.getElementById("manualRows");
+        const found = manuals.filter(manual =>
+            [manual.document_id, manual.name, manual.revision, manual.machine_code, manual.machine_name, manual.machine_model]
+                .join(" ").toLowerCase().includes(term)
+        );
+
+        document.getElementById("manualCount").textContent = term
+            ? `${found.length} of ${plural(manuals.length, "manual")}`
+            : plural(manuals.length, "manual");
+
+        rows.replaceChildren();
+        if (!found.length) {
+            const message = manuals.length ? "No manuals match your search." : "No manuals yet. Upload the first one above.";
+            rows.append(el("tr", {}, el("td", { colspan: 7, class: "empty", text: message })));
+            return;
+        }
+        found.forEach(manual => {
+            rows.append(el("tr", {},
+                el("td", { class: "code", text: manual.document_id || "Not set" }),
+                el("td", { text: manual.name }),
+                el("td", { text: manual.revision }),
+                el("td", { class: "code", text: manual.machine_code || "Not set" }),
+                el("td", { text: `${manual.machine_name} (${manual.machine_model})` }),
+                el("td", { text: formatDate(manual.uploaded_at) }),
+                el("td", {}, el("a", { href: `/api/manuals/${manual.id}/pdf/`, target: "_blank", rel: "noopener", text: "Open" }))
+            ));
+        });
+    }
+
+    async function refresh() {
+        try {
+            [machines, manuals] = await Promise.all([api("/api/machines/"), api("/api/manuals/")]);
+            drawManuals();
+            drawMachines();
+        } catch (error) {
+            showNotice(notice, error.message, "bad");
+        }
+    }
+
+    document.getElementById("manualSearch").addEventListener("input", drawManuals);
+
+    document.getElementById("machineForm").addEventListener("submit", async event => {
+        event.preventDefault();
+        const form = event.target;
+        const button = document.getElementById("machineSubmit");
+        button.disabled = true;
+        button.textContent = "Registering";
+        try {
+            const machine = await api("/api/machines/", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    machine_code: document.getElementById("machineCode").value.trim(),
+                    name: document.getElementById("machineName").value.trim(),
+                    model: document.getElementById("machineModel").value.trim(),
+                }),
+            });
+            form.reset();
+            await refresh();
+            document.getElementById("manualMachine").value = machine.id;
+            showNotice(notice, `Registered ${machine.name} (${machine.model}).`, "ok");
+        } catch (error) {
+            showNotice(notice, error.message, "bad");
+        } finally {
+            button.disabled = false;
+            button.textContent = "Register machine";
+        }
+    });
+
+    document.getElementById("manualForm").addEventListener("submit", async event => {
+        event.preventDefault();
+        const form = event.target;
+        const button = document.getElementById("uploadSubmit");
+        const machine = machines.find(m => String(m.id) === document.getElementById("manualMachine").value);
+        if (!machine) {
+            showNotice(notice, "Choose a machine before uploading.", "bad");
+            return;
+        }
+
+        const data = new FormData();
+        data.append("machine_name", machine.name);
+        data.append("machine_model", machine.model);
+        data.append("document_id", document.getElementById("manualDocumentId").value.trim());
+        data.append("name", document.getElementById("manualName").value.trim());
+        data.append("revision", document.getElementById("manualRevision").value.trim());
+        data.append("file", document.getElementById("manualFile").files[0]);
+
+        button.disabled = true;
+        button.textContent = "Uploading and reading the PDF";
+        try {
+            const manual = await api("/api/manuals/upload/", { method: "POST", body: data });
+            form.reset();
+            await refresh();
+            showNotice(notice, `Uploaded ${manual.name}. Engineers can now ask about it.`, "ok");
+        } catch (error) {
+            showNotice(notice, error.message, "bad");
+        } finally {
+            button.disabled = false;
+            button.textContent = "Upload manual";
+        }
+    });
+
+    refresh();
+</script>

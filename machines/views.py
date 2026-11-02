@@ -58,10 +58,14 @@ class MachineListCreateAPIView(APIView):
 
 class ManualListAPIView(APIView):
     """
-    Allows Administrators to view all uploaded manuals.
+    Lets every role read the list of uploaded manuals. Uploading stays
+    Administrator-only.
     """
 
-    permission_classes = [IsAuthenticated, IsAdministrator]
+    permission_classes = [
+        IsAuthenticated,
+        (IsAdministrator | IsEngineer | IsSupervisor),
+    ]
 
     def get(self, request, *args, **kwargs):
         manuals = Manual.objects.select_related("machine").all()

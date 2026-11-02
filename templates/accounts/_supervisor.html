@@ -1,0 +1,150 @@
+<style>
+    .tally { display: flex; flex-wrap: wrap; gap: 32px; margin-bottom: 24px; }
+    .tally strong { display: block; font-family: "Archivo", Arial, sans-serif; font-size: 30px; font-weight: 700; line-height: 1.1; }
+    .tally span { color: var(--steel); font-size: 15px; }
+    .tally .alert-count strong { color: var(--amber); }
+    .question-toggle {
+        background: none; border: 0; padding: 0; text-align: left; color: var(--enamel);
+        font-weight: 600; overflow-wrap: anywhere;
+    }
+    .question-toggle:hover { text-decoration: underline; }
+    .detail-row td { background: #f6f8f9; padding: 16px 20px 20px; }
+    .detail-label { font-weight: 600; font-size: 14px; color: var(--steel); margin-bottom: 4px; }
+    .answer-text { margin: 0 0 8px; white-space: pre-wrap; overflow-wrap: anywhere; max-width: 80ch; }
+    .cite { font-weight: 700; text-decoration: none; }
+</style>
+
+<main class="page">
+    <h1 class="page-title">Question history</h1>
+    <p class="page-lede">Every question Engineers have asked, and the answer they received. This view is read-only.</p>
+
+    <div class="tally" id="tally"></div>
+    <div id="historyNotice" aria-live="polite"></div>
+
+    <section class="panel" aria-label="Question history">
+        <div class="panel-body pb-3">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label" for="historySearch">Search</label>
+                    <input class="form-control" id="historySearch" type="search" placeholder="Words in the question or answer">
+                </div>
+                <div class="col-sm-4 col-md-3">
+                    <label class="form-label" for="statusFilter">Result</label>
+                    <select class="form-select" id="statusFilter">
+                        <option value="">All results</option>
+                        <option value="answered">Answered</option>
+                        <option value="insufficient_evidence">Not in the manuals</option>
+                    </select>
+                </div>
+                <div class="col-sm-4 col-md-2">
+                    <label class="form-label" for="engineerFilter">Engineer</label>
+                    <select class="form-select" id="engineerFilter"><option value="">All</option></select>
+                </div>
+                <div class="col-sm-4 col-md-3">
+                    <label class="form-label" for="machineFilter">Machine</label>
+                    <select class="form-select" id="machineFilter"><option value="">All</option></select>
+                </div>
+            </div>
+        </div>
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead><tr><th>Asked</th><th>Engineer</th><th>Machine</th><th>Question</th><th>Result</th></tr></thead>
+                <tbody id="historyRows"><tr><td colspan="5" class="empty">Loading history</td></tr></tbody>
+            </table>
+        </div>
+    </section>
+</main>
+
+<script>
+    let questions = [];
+    const openIds = new Set();
+
+    function fillSelect(id, values) {
+        const select = document.getElementById(id);
+        values.forEach(value => select.append(el("option", { value, text: value })));
+    }
+
+    function machineLabel(q) {
+        return `${q.machine_name} (${q.machine_model})`;
+    }
+
+    function drawTally() {
+        const answered = questions.filter(q => q.status === "answered").length;
+        const box = document.getElementById("tally");
+        box.replaceChildren(
+            el("div", {}, el("strong", { text: questions.length }), el("span", { text: "Questions asked" })),
+            el("div", {}, el("strong", { text: answered }), el("span", { text: "Answered" })),
+            el("div", { class: "alert-count" }, el("strong", { text: questions.length - answered }), el("span", { text: "Not in the manuals" })),
+            el("div", {}, el("strong", { text: new Set(questions.map(q => q.username)).size }), el("span", { text: "Engineers" }))
+        );
+    }
+
+    function detailRow(q) {
+        const cell = el("td", { colspan: 5 },
+            el("div", { class: "detail-label", text: "Answer received" }),
+            answerWithLinks(q.answer, q.sources)
+        );
+        if (q.sources && q.sources.length) {
+            cell.append(el("div", { class: "detail-label mt-3", text: "Sources" }));
+            q.sources.forEach(source => cell.append(sourcePlate(source)));
+        }
+        return el("tr", { class: "detail-row" }, cell);
+    }
+
+    function drawRows() {
+        const term = document.getElementById("historySearch").value.trim().toLowerCase();
+        const status = document.getElementById("statusFilter").value;
+        const engineer = document.getElementById("engineerFilter").value;
+        const machine = document.getElementById("machineFilter").value;
+
+        const found = questions.filter(q =>
+            (!status || q.status === status) &&
+            (!engineer || q.username === engineer) &&
+            (!machine || machineLabel(q) === machine) &&
+            `${q.text} ${q.answer}`.toLowerCase().includes(term)
+        );
+
+        const rows = document.getElementById("historyRows");
+        rows.replaceChildren();
+        if (!found.length) {
+            const message = questions.length ? "No questions match these filters." : "No questions yet. They appear here once Engineers start asking.";
+            rows.append(el("tr", {}, el("td", { colspan: 5, class: "empty", text: message })));
+            return;
+        }
+
+        found.forEach(q => {
+            const isOpen = openIds.has(q.id);
+            rows.append(el("tr", {},
+                el("td", { style: "white-space:nowrap", text: formatDateTime(q.created_at) }),
+                el("td", { text: q.username }),
+                el("td", { text: machineLabel(q) }),
+                el("td", {}, el("button", {
+                    type: "button", class: "question-toggle", "aria-expanded": String(isOpen), text: q.text,
+                    onclick: () => {
+                        if (openIds.has(q.id)) openIds.delete(q.id); else openIds.add(q.id);
+                        drawRows();
+                    },
+                })),
+                el("td", {}, statusBadge(q.status))
+            ));
+            if (isOpen) rows.append(detailRow(q));
+        });
+    }
+
+    ["historySearch", "statusFilter", "engineerFilter", "machineFilter"].forEach(id => {
+        document.getElementById(id).addEventListener("input", drawRows);
+    });
+
+    (async function start() {
+        try {
+            questions = await api("/api/history/");
+            fillSelect("engineerFilter", [...new Set(questions.map(q => q.username))].sort());
+            fillSelect("machineFilter", [...new Set(questions.map(machineLabel))].sort());
+            drawTally();
+            drawRows();
+        } catch (error) {
+            showNotice(document.getElementById("historyNotice"), error.message, "bad");
+            document.getElementById("historyRows").replaceChildren(el("tr", {}, el("td", { colspan: 5, class: "empty", text: "The history could not be loaded." })));
+        }
+    })();
+</script>
