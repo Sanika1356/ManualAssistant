@@ -100,18 +100,23 @@ def index_manual(manual):
     return len(chunks)
 
 
-def search(machine_id, question, k=4):
+def search(machine_id, question, k=4, manual_id=None):
     """
     Return the k best matching passages for one machine, best match first.
 
     The machine filter is part of the search query itself. Filtering the
     results afterwards could let another machine's text take up the top
-    places and push out the right ones.
+    places and push out the right ones. Passing manual_id also limits the
+    search to that one manual of the machine.
     """
+    where = {"machine_id": int(machine_id)}
+    if manual_id is not None:
+        where = {"$and": [where, {"manual_id": int(manual_id)}]}
+
     result = _collection().query(
         query_embeddings=embed_texts([question]),
         n_results=k,
-        where={"machine_id": int(machine_id)},
+        where=where,
         include=["documents", "metadatas", "distances"],
     )
 
