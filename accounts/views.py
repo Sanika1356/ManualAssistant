@@ -1,3 +1,6 @@
+import logging
+
+from django.db import DatabaseError
 from django.shortcuts import render, redirect
 from django.views.decorators.csrf import csrf_protect
 from django.contrib.auth import authenticate, get_user_model, login, logout
@@ -12,6 +15,9 @@ from rest_framework.response import Response
 from rest_framework import status
 
 from .serializers import LoginSerializer, SignupSerializer
+
+
+logger = logging.getLogger(__name__)
 
 
 @ensure_csrf_cookie
@@ -36,35 +42,48 @@ class LoginAPI(APIView):
         username = serializer.validated_data["username"]
         password = serializer.validated_data["password"]
 
-        user = authenticate(
-            request=request._request,
-            username=username,
-            password=password
-        )
-
-        if user is None:
-            return Response(
-                {"error": "Invalid username or password"},
-                status=status.HTTP_401_UNAUTHORIZED
+        try:
+            user = authenticate(
+                request=request._request,
+                username=username,
+                password=password
             )
 
-        login(request._request, user)
+            if user is None:
+                return Response(
+                    {"error": "Invalid username or password"},
+                    status=status.HTTP_401_UNAUTHORIZED
+                )
 
-        groups = list(
-            user.groups.values_list("name", flat=True)
-        )
+            login(request._request, user)
 
-        roles = [
-            role for role in
-            ["Administrator", "Engineer", "Supervisor"]
-            if role in groups
-        ]
+            groups = list(
+                user.groups.values_list("name", flat=True)
+            )
 
-        if len(roles) != 1:
-            logout(request._request)
+            roles = [
+                role for role in
+                ["Administrator", "Engineer", "Supervisor"]
+                if role in groups
+            ]
+
+            if len(roles) != 1:
+                logout(request._request)
+                return Response(
+                    {"error": "Your account must have exactly one valid role."},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+        except DatabaseError:
+            logger.exception("Database error during login")
             return Response(
-                {"error": "Your account must have exactly one valid role."},
-                status=status.HTTP_403_FORBIDDEN
+                {
+                    "error": (
+                        "Login is temporarily unavailable because the "
+                        "database could not be reached."
+                    )
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE
             )
 
         return Response({

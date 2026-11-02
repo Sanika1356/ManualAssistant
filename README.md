@@ -145,6 +145,22 @@ Additional retrieval settings can be configured using `RAG_EMBEDDING_BACKEND`, `
 
 **Important:** Never commit `.env` or share passwords, secret keys, or API keys.
 
+### Render deployment
+
+For a Render web service, attach a Render PostgreSQL database and set
+`DATABASE_URL` to that database's **Internal Database URL** (or link the
+database's connection-string environment variable to the web service).
+Also set `DJANGO_SECRET_KEY` to a private generated value. The application
+accepts `DATABASE_URL` on Render and keeps the `DB_*` variables for local use.
+
+Use `pip install -r requirements.txt` as the build command and
+`bash render_start.sh` as the start command. The startup script applies pending
+migrations before launching Gunicorn. After the first deployment, create the
+intended application user(s) in the Render database; the optional local demo
+account command is for demonstrations only and its preset credentials are not
+suitable for a public production service. For a non-production demo, run
+`python manage.py seed_demo` once using the Render Shell after deployment.
+
 ### 6. Apply database migrations
 
 ```powershell
