@@ -285,7 +285,11 @@ class HistoryAPITests(RetrievalTestCase):
             machine=self.machine_a,
             text="Test question",
             answer="Test answer" if answered else NOT_ENOUGH_MESSAGE,
-            answered=answered,
+            status=(
+                Question.Status.ANSWERED
+                if answered
+                else Question.Status.INSUFFICIENT_EVIDENCE
+            ),
         )
 
     def test_engineer_sees_only_own_questions(self):

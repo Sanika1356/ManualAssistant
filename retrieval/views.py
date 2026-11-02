@@ -5,7 +5,6 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.permissions import IsEngineer
 from .models import Question
 from .llm import LLMUnavailable
 from .serializers import AskRequestSerializer, QuestionDetailSerializer
@@ -82,9 +81,9 @@ class HistoryAPIView(APIView):
         question_status = request.query_params.get("status")
 
         if question_status == "insufficient_evidence":
-            questions = questions.filter(answered=False)
+            questions = questions.filter(status=Question.Status.INSUFFICIENT_EVIDENCE)
         elif question_status == "answered":
-            questions = questions.filter(answered=True)
+            questions = questions.filter(status=Question.Status.ANSWERED)
         elif question_status:
             return Response(
                 {"detail": "Invalid status. Use 'answered' or 'insufficient_evidence'."},
