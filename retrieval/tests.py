@@ -12,7 +12,7 @@ from rest_framework.test import APIClient
 
 from machines.models import Chunk, Machine, Manual
 
-from . import vectorstore
+from . import llm, vectorstore
 from .llm import LLMUnavailable
 from .models import Question, QuestionSource
 from .services import (
@@ -195,6 +195,16 @@ class CitationCheckTests(RetrievalTestCase):
 
     QUESTION = "At what temperature should I bake the lasagna?"
 
+    def test_other_bracket_styles_count_as_citations(self):
+        for reply in ("180 degrees 【1】.", "180 degrees 【1†source】.", "180 degrees ［1］."):
+            with mock.patch("retrieval.llm.generate", return_value=reply) as fake_model:
+                response = self.ask(self.machine_a, self.QUESTION)
+
+            fake_model.assert_called_once()
+            self.assertEqual(response.data["status"], "answered")
+            self.assertEqual(response.data["answer"], "180 degrees [1].")
+            self.assertEqual(len(response.data["sources"]), 1)
+
     def test_uncited_answer_is_retried_once_then_saved_when_fixed(self):
         replies = ["180 degrees.", "180 degrees [1]."]
         with mock.patch("retrieval.llm.generate", side_effect=replies) as fake_model:
@@ -219,6 +229,46 @@ class CitationCheckTests(RetrievalTestCase):
 
         self.assertEqual(response.data["status"], "insufficient_evidence")
         self.assertNotIn("[99]", response.data["answer"])
+
+
+class ProviderTests(TestCase):
+
+    def fake_groq_reply(self, content):
+        reply = mock.MagicMock()
+        reply.choices[0].message.content = content
+        return reply
+
+    @mock.patch.dict("os.environ", {"LLM_PROVIDER": "groq", "GROQ_API_KEY": "test-key"})
+    def test_groq_reply_and_prompts_are_passed_through(self):
+        with mock.patch("groq.Groq") as fake_client:
+            create = fake_client.return_value.chat.completions.create
+            create.return_value = self.fake_groq_reply(" 180 degrees [1]. ")
+            reply = llm.generate("the rules", "the question")
+
+        self.assertEqual(reply, "180 degrees [1].")
+        messages = create.call_args.kwargs["messages"]
+        self.assertEqual(messages[0], {"role": "system", "content": "the rules"})
+        self.assertEqual(messages[1], {"role": "user", "content": "the question"})
+
+    @mock.patch.dict("os.environ", {"LLM_PROVIDER": "groq", "GROQ_API_KEY": ""})
+    def test_missing_groq_key_gives_a_clear_error(self):
+        with self.assertRaisesMessage(LLMUnavailable, "GROQ_API_KEY"):
+            llm.generate("rules", "question")
+
+    @mock.patch.dict("os.environ", {"LLM_PROVIDER": "groq", "GROQ_API_KEY": "test-key"})
+    def test_groq_failure_becomes_llm_unavailable(self):
+        import groq
+
+        error = groq.APIConnectionError(request=mock.Mock())
+        with mock.patch("groq.Groq") as fake_client:
+            fake_client.return_value.chat.completions.create.side_effect = error
+            with self.assertRaises(LLMUnavailable):
+                llm.generate("rules", "question")
+
+    @mock.patch.dict("os.environ", {"LLM_PROVIDER": "other"})
+    def test_unknown_provider_gives_a_clear_error(self):
+        with self.assertRaisesMessage(LLMUnavailable, "LLM_PROVIDER"):
+            llm.generate("rules", "question")
 
 
 class AskEndpointTests(RetrievalTestCase):
