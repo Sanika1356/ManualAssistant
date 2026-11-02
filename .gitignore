@@ -1,4 +1,3 @@
-
 # Python
 __pycache__/
 *.py[cod]
@@ -34,3 +33,6 @@ Thumbs.db
 
 # Vector store (rebuild with: python manage.py reindex --all)
 chroma_db/
+
+# Local database backups
+backups/
