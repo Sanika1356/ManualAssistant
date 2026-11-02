@@ -28,11 +28,29 @@ class MachineListCreateAPIView(APIView):
     Only Administrators can create machines.
     """
 
+ p4-ask-history
+    permission_classes = [IsAuthenticated]
+
+    def get_permissions(self):
+        if self.request.method == "GET":
+            permission_classes = [
+                IsAuthenticated,
+                IsAdministrator | IsEngineer | IsSupervisor
+            ]
+        else:
+            permission_classes = [
+                IsAuthenticated,
+                IsAdministrator
+            ]
+
+        return [permission() for permission in permission_classes]
+
     def get_permissions(self):
         if self.request.method == "GET":
             return [IsAuthenticated()]
 
         return [IsAuthenticated(), IsAdministrator()]
+ main
 
     def get(self, request, *args, **kwargs):
         machines = Machine.objects.all()
