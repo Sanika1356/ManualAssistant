@@ -38,7 +38,101 @@ class MachineModelTests(TestCase):
         with self.assertRaises(IntegrityError):
             Machine.objects.create(name="Haas Mill", model="VF-2")
 
+class MachineListCreateAPITests(TestCase):
 
+    def setUp(self):
+        self.client = APIClient()
+
+        # Create the three role groups
+        self.admin_group, _ = Group.objects.get_or_create(name="Administrator")
+        self.engineer_group, _ = Group.objects.get_or_create(name="Engineer")
+        self.supervisor_group, _ = Group.objects.get_or_create(name="Supervisor")
+
+        # Create users
+        self.admin = User.objects.create_user(
+            username="admin_test",
+            password="test123"
+        )
+        self.engineer = User.objects.create_user(
+            username="engineer_test",
+            password="test123"
+        )
+        self.supervisor = User.objects.create_user(
+            username="supervisor_test",
+            password="test123"
+        )
+
+        # Assign roles
+        self.admin.groups.add(self.admin_group)
+        self.engineer.groups.add(self.engineer_group)
+        self.supervisor.groups.add(self.supervisor_group)
+
+        # Create a machine
+        self.machine = Machine.objects.create(
+            name="Test Machine",
+            model="TM001"
+        )
+
+        self.url = "/api/machines/"
+
+    def test_all_roles_can_view_machines(self):
+        for user in [self.admin, self.engineer, self.supervisor]:
+            with self.subTest(user=user.username):
+                self.client.force_authenticate(user=user)
+
+                response = self.client.get(self.url)
+
+                self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_only_admin_can_create_machine(self):
+        self.client.force_authenticate(user=self.admin)
+
+        response = self.client.post(
+            self.url,
+            {
+                "name": "New Machine",
+                "model": "NM001"
+            },
+            format="json"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    def test_engineer_cannot_create_machine(self):
+        self.client.force_authenticate(user=self.engineer)
+
+        response = self.client.post(
+            self.url,
+            {
+                "name": "New Machine",
+                "model": "NM002"
+            },
+            format="json"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_supervisor_cannot_create_machine(self):
+        self.client.force_authenticate(user=self.supervisor)
+
+        response = self.client.post(
+            self.url,
+            {
+                "name": "New Machine",
+                "model": "NM003"
+            },
+            format="json"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_anonymous_user_cannot_view_machines(self):
+        response = self.client.get(self.url)
+
+        self.assertIn(
+            response.status_code,
+            [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN]
+        )
 class ManualModelTests(TestCase):
 
     def setUp(self):

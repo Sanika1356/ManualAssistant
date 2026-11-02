@@ -270,3 +270,94 @@ class IndexingTests(RetrievalTestCase):
         )
         self.assertEqual(hits[0].page, 2)
         self.assertEqual(hits[0].revision, "A")
+
+
+class HistoryAPITests(RetrievalTestCase):
+    """Tests for role-based, read-only question history."""
+
+    def create_question(self, user, answered=True):
+        return Question.objects.create(
+            user=user,
+            machine=self.machine_a,
+            text="Test question",
+            answer="Test answer" if answered else NOT_ENOUGH_MESSAGE,
+            answered=answered,
+        )
+
+    def test_engineer_sees_only_own_questions(self):
+        own_question = self.create_question(self.engineer)
+        self.create_question(self.supervisor)
+
+        self.client.force_authenticate(user=self.engineer)
+        response = self.client.get("/api/history/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["id"], own_question.id)
+
+    def test_supervisor_sees_all_questions(self):
+        self.create_question(self.engineer)
+        self.create_question(self.supervisor)
+
+        self.client.force_authenticate(user=self.supervisor)
+        response = self.client.get("/api/history/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 2)
+
+    def test_insufficient_evidence_filter(self):
+        self.create_question(self.engineer, answered=True)
+        unanswered = self.create_question(self.engineer, answered=False)
+
+        self.client.force_authenticate(user=self.engineer)
+        response = self.client.get(
+            "/api/history/?status=insufficient_evidence"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["id"], unanswered.id)
+
+    def test_answered_filter(self):
+        answered = self.create_question(self.engineer, answered=True)
+        self.create_question(self.engineer, answered=False)
+
+        self.client.force_authenticate(user=self.engineer)
+        response = self.client.get("/api/history/?status=answered")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["id"], answered.id)
+
+    def test_invalid_status_returns_400(self):
+        self.client.force_authenticate(user=self.engineer)
+        response = self.client.get("/api/history/?status=invalid")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_administrator_cannot_view_history(self):
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get("/api/history/")
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_anonymous_user_cannot_view_history(self):
+        self.client.force_authenticate(user=None)
+        response = self.client.get("/api/history/")
+
+        self.assertIn(response.status_code, (401, 403))
+
+    def test_history_is_read_only(self):
+        self.create_question(self.engineer)
+        self.client.force_authenticate(user=self.engineer)
+
+        response = self.client.post(
+            "/api/history/",
+            {"text": "New question"},
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_405_METHOD_NOT_ALLOWED,
+        )
