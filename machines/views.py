@@ -24,9 +24,11 @@ from .serializers import (
 
 class MachineListCreateAPIView(APIView):
     """
-    Allows Administrators to create and view machines.
+    All authenticated users can view machines.
+    Only Administrators can create machines.
     """
 
+ p4-ask-history
     permission_classes = [IsAuthenticated]
 
     def get_permissions(self):
@@ -42,6 +44,13 @@ class MachineListCreateAPIView(APIView):
             ]
 
         return [permission() for permission in permission_classes]
+
+    def get_permissions(self):
+        if self.request.method == "GET":
+            return [IsAuthenticated()]
+
+        return [IsAuthenticated(), IsAdministrator()]
+ main
 
     def get(self, request, *args, **kwargs):
         machines = Machine.objects.all()

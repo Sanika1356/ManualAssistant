@@ -67,6 +67,7 @@ class QuestionDetailSerializer(serializers.ModelSerializer):
             "machine_model",
             "text",
             "answer",
+            "status",
             "answered",
             "created_at",
             "sources",

@@ -8,3 +8,4 @@ pymupdf
 sentence-transformers
 chromadb
 anthropic
+groq

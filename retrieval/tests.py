@@ -12,7 +12,7 @@ from rest_framework.test import APIClient
 
 from machines.models import Chunk, Machine, Manual
 
-from . import vectorstore
+from . import llm, vectorstore
 from .llm import LLMUnavailable
 from .models import Question, QuestionSource
 from .services import (
@@ -116,6 +116,7 @@ class WrongMachineTests(RetrievalTestCase):
 
         fake_model.assert_not_called()
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["status"], "insufficient_evidence")
         self.assertFalse(response.data["answered"])
         self.assertEqual(response.data["answer"], NOT_ENOUGH_MESSAGE)
         self.assertEqual(response.data["sources"], [])
@@ -136,6 +137,140 @@ class WrongMachineTests(RetrievalTestCase):
         self.assertNotIn("200 degrees", prompt)
 
 
+class TwoManualTests(RetrievalTestCase):
+
+    def setUp(self):
+        super().setUp()
+        self.press = Machine.objects.create(name="Press", model="P1")
+        self.ops = create_indexed_manual(self.press, "Press Operations", "1.0", [
+            (page, f"Alarm trigger pressure rule number {page} for the press alarm.")
+            for page in range(1, 7)
+        ])
+        self.maintenance = create_indexed_manual(self.press, "Press Maintenance", "1.0", [
+            (1, "Lubricate the rails weekly using clean grease and a brush."),
+        ])
+
+    def test_every_manual_of_the_machine_gets_a_place(self):
+        hits = retrieve(self.press, "What is the alarm trigger pressure rule?")
+
+        self.assertEqual(len(hits), 4)
+        self.assertEqual(
+            {hit.manual_id for hit in hits},
+            {self.ops.id, self.maintenance.id},
+        )
+        self.assertEqual(
+            [hit.score for hit in hits],
+            sorted((hit.score for hit in hits), reverse=True),
+        )
+
+    def test_answer_citing_two_manuals_saves_both_sources(self):
+        hits = [
+            mock.Mock(chunk_id=self.ops.chunks.first().id, manual_id=self.ops.id,
+                      manual_name="Press Operations", revision="1.0", page=1,
+                      text="Trigger", score=0.6, machine_id=self.press.id),
+            mock.Mock(chunk_id=self.maintenance.chunks.first().id, manual_id=self.maintenance.id,
+                      manual_name="Press Maintenance", revision="1.0", page=1,
+                      text="First checks", score=0.2, machine_id=self.press.id),
+        ]
+        with mock.patch("retrieval.services.retrieve", return_value=hits), \
+                mock.patch("retrieval.llm.generate", return_value="Trigger [1]. First checks [2]."):
+            response = self.ask(self.press, "What triggers it and what is checked first?")
+
+        self.assertEqual(
+            [source["manual_name"] for source in response.data["sources"]],
+            ["Press Operations", "Press Maintenance"],
+        )
+
+    def test_weak_best_passage_is_still_refused(self):
+        hit = mock.Mock(score=0.2)
+        with mock.patch("retrieval.services.retrieve", return_value=[hit]), \
+                mock.patch("retrieval.llm.generate") as fake_model:
+            response = self.ask(self.press, "Anything at all?")
+
+        fake_model.assert_not_called()
+        self.assertEqual(response.data["status"], "insufficient_evidence")
+
+
+class CitationCheckTests(RetrievalTestCase):
+
+    QUESTION = "At what temperature should I bake the lasagna?"
+
+    def test_other_bracket_styles_count_as_citations(self):
+        for reply in ("180 degrees 【1】.", "180 degrees 【1†source】.", "180 degrees ［1］."):
+            with mock.patch("retrieval.llm.generate", return_value=reply) as fake_model:
+                response = self.ask(self.machine_a, self.QUESTION)
+
+            fake_model.assert_called_once()
+            self.assertEqual(response.data["status"], "answered")
+            self.assertEqual(response.data["answer"], "180 degrees [1].")
+            self.assertEqual(len(response.data["sources"]), 1)
+
+    def test_uncited_answer_is_retried_once_then_saved_when_fixed(self):
+        replies = ["180 degrees.", "180 degrees [1]."]
+        with mock.patch("retrieval.llm.generate", side_effect=replies) as fake_model:
+            response = self.ask(self.machine_a, self.QUESTION)
+
+        self.assertEqual(fake_model.call_count, 2)
+        self.assertEqual(response.data["status"], "answered")
+        self.assertEqual(len(response.data["sources"]), 1)
+
+    def test_answer_still_uncited_after_retry_is_refused(self):
+        with mock.patch("retrieval.llm.generate", return_value="180 degrees.") as fake_model:
+            response = self.ask(self.machine_a, self.QUESTION)
+
+        self.assertEqual(fake_model.call_count, 2)
+        self.assertEqual(response.data["status"], "insufficient_evidence")
+        self.assertEqual(response.data["answer"], NOT_ENOUGH_MESSAGE)
+        self.assertEqual(response.data["sources"], [])
+
+    def test_invented_citation_is_never_saved(self):
+        with mock.patch("retrieval.llm.generate", return_value="180 degrees [1][99]."):
+            response = self.ask(self.machine_a, self.QUESTION)
+
+        self.assertEqual(response.data["status"], "insufficient_evidence")
+        self.assertNotIn("[99]", response.data["answer"])
+
+
+class ProviderTests(TestCase):
+
+    def fake_groq_reply(self, content):
+        reply = mock.MagicMock()
+        reply.choices[0].message.content = content
+        return reply
+
+    @mock.patch.dict("os.environ", {"LLM_PROVIDER": "groq", "GROQ_API_KEY": "test-key"})
+    def test_groq_reply_and_prompts_are_passed_through(self):
+        with mock.patch("groq.Groq") as fake_client:
+            create = fake_client.return_value.chat.completions.create
+            create.return_value = self.fake_groq_reply(" 180 degrees [1]. ")
+            reply = llm.generate("the rules", "the question")
+
+        self.assertEqual(reply, "180 degrees [1].")
+        messages = create.call_args.kwargs["messages"]
+        self.assertEqual(messages[0], {"role": "system", "content": "the rules"})
+        self.assertEqual(messages[1], {"role": "user", "content": "the question"})
+
+    @mock.patch.dict("os.environ", {"LLM_PROVIDER": "groq", "GROQ_API_KEY": ""})
+    def test_missing_groq_key_gives_a_clear_error(self):
+        with self.assertRaisesMessage(LLMUnavailable, "GROQ_API_KEY"):
+            llm.generate("rules", "question")
+
+    @mock.patch.dict("os.environ", {"LLM_PROVIDER": "groq", "GROQ_API_KEY": "test-key"})
+    def test_groq_failure_becomes_llm_unavailable(self):
+        import groq
+
+        error = groq.APIConnectionError(request=mock.Mock())
+        with mock.patch("groq.Groq") as fake_client:
+            fake_client.return_value.chat.completions.create.side_effect = error
+            with self.assertRaises(LLMUnavailable):
+                llm.generate("rules", "question")
+
+    @mock.patch.dict("os.environ", {"LLM_PROVIDER": "other"})
+    def test_unknown_provider_gives_a_clear_error(self):
+        with self.assertRaisesMessage(LLMUnavailable, "LLM_PROVIDER"):
+            llm.generate("rules", "question")
+
+
 class AskEndpointTests(RetrievalTestCase):
 
     def test_answered_question_is_saved_with_its_source(self):
@@ -144,6 +279,7 @@ class AskEndpointTests(RetrievalTestCase):
             response = self.ask(self.machine_a, LASAGNA_QUESTION)
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["status"], "answered")
         self.assertTrue(response.data["answered"])
 
         source = response.data["sources"][0]
@@ -155,6 +291,7 @@ class AskEndpointTests(RetrievalTestCase):
         saved = Question.objects.get(pk=response.data["id"])
         self.assertEqual(saved.user, self.engineer)
         self.assertEqual(saved.machine, self.machine_a)
+        self.assertEqual(saved.status, Question.Status.ANSWERED)
         self.assertTrue(saved.answered)
         self.assertEqual(saved.sources.count(), 1)
 
@@ -162,10 +299,11 @@ class AskEndpointTests(RetrievalTestCase):
         with mock.patch("retrieval.llm.generate", return_value=NOT_ENOUGH_MARKER):
             response = self.ask(self.machine_a, LASAGNA_QUESTION)
 
+        self.assertEqual(response.data["status"], "insufficient_evidence")
         self.assertFalse(response.data["answered"])
         self.assertEqual(response.data["answer"], NOT_ENOUGH_MESSAGE)
         self.assertEqual(QuestionSource.objects.count(), 0)
-        self.assertFalse(Question.objects.get().answered)
+        self.assertEqual(Question.objects.get().status, Question.Status.INSUFFICIENT_EVIDENCE)
 
     def test_only_cited_passages_are_saved_as_sources(self):
         reply = "Replace the gasket every 12 months [1]."
@@ -270,3 +408,98 @@ class IndexingTests(RetrievalTestCase):
         )
         self.assertEqual(hits[0].page, 2)
         self.assertEqual(hits[0].revision, "A")
+
+
+class HistoryAPITests(RetrievalTestCase):
+    """Tests for role-based, read-only question history."""
+
+    def create_question(self, user, answered=True):
+        return Question.objects.create(
+            user=user,
+            machine=self.machine_a,
+            text="Test question",
+            answer="Test answer" if answered else NOT_ENOUGH_MESSAGE,
+            status=(
+                Question.Status.ANSWERED
+                if answered
+                else Question.Status.INSUFFICIENT_EVIDENCE
+            ),
+        )
+
+    def test_engineer_sees_only_own_questions(self):
+        own_question = self.create_question(self.engineer)
+        self.create_question(self.supervisor)
+
+        self.client.force_authenticate(user=self.engineer)
+        response = self.client.get("/api/history/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["id"], own_question.id)
+
+    def test_supervisor_sees_all_questions(self):
+        self.create_question(self.engineer)
+        self.create_question(self.supervisor)
+
+        self.client.force_authenticate(user=self.supervisor)
+        response = self.client.get("/api/history/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 2)
+
+    def test_insufficient_evidence_filter(self):
+        self.create_question(self.engineer, answered=True)
+        unanswered = self.create_question(self.engineer, answered=False)
+
+        self.client.force_authenticate(user=self.engineer)
+        response = self.client.get(
+            "/api/history/?status=insufficient_evidence"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["id"], unanswered.id)
+
+    def test_answered_filter(self):
+        answered = self.create_question(self.engineer, answered=True)
+        self.create_question(self.engineer, answered=False)
+
+        self.client.force_authenticate(user=self.engineer)
+        response = self.client.get("/api/history/?status=answered")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["id"], answered.id)
+
+    def test_invalid_status_returns_400(self):
+        self.client.force_authenticate(user=self.engineer)
+        response = self.client.get("/api/history/?status=invalid")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_administrator_cannot_view_history(self):
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get("/api/history/")
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_anonymous_user_cannot_view_history(self):
+        self.client.force_authenticate(user=None)
+        response = self.client.get("/api/history/")
+
+        self.assertIn(response.status_code, (401, 403))
+
+    def test_history_is_read_only(self):
+        self.create_question(self.engineer)
+        self.client.force_authenticate(user=self.engineer)
+
+        response = self.client.post(
+            "/api/history/",
+            {"text": "New question"},
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_405_METHOD_NOT_ALLOWED,
+        )

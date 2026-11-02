@@ -1,0 +1,403 @@
+[
+ {
+  "id": 1,
+  "machine": "HP-200",
+  "question": "What does E17 mean?",
+  "expect_status": "answered",
+  "keywords": [
+   "low",
+   "110 bar",
+   "5 seconds"
+  ],
+  "sources": [
+   {
+    "doc": "HP-OPS-01",
+    "page": 2
+   }
+  ]
+ },
+ {
+  "id": 2,
+  "machine": "AC-90",
+  "question": "What does E17 mean?",
+  "expect_status": "answered",
+  "keywords": [
+   "discharge temperature",
+   "95",
+   "105"
+  ],
+  "sources": [
+   {
+    "doc": "AC-OM-01",
+    "page": 2
+   }
+  ],
+  "note": "Same code as HP-200, different meaning"
+ },
+ {
+  "id": 3,
+  "machine": "HP-200",
+  "question": "What is the normal operating pressure range?",
+  "expect_status": "answered",
+  "keywords": [
+   "120",
+   "140"
+  ],
+  "sources": [
+   {
+    "doc": "HP-OPS-01",
+    "page": 1
+   }
+  ]
+ },
+ {
+  "id": 4,
+  "machine": "AC-90",
+  "question": "What is the normal operating pressure range?",
+  "expect_status": "answered",
+  "keywords": [
+   "7.0",
+   "8.0"
+  ],
+  "sources": [
+   {
+    "doc": "AC-OM-01",
+    "page": 1
+   }
+  ]
+ },
+ {
+  "id": 5,
+  "machine": "HP-200",
+  "question": "How often is the filter checked?",
+  "expect_status": "answered",
+  "keywords": [
+   "50 operating hours"
+  ],
+  "sources": [
+   {
+    "doc": "HP-MNT-01",
+    "page": 2
+   }
+  ]
+ },
+ {
+  "id": 6,
+  "machine": "AC-90",
+  "question": "How often is the filter checked?",
+  "expect_status": "answered",
+  "keywords": [
+   "100 operating hours"
+  ],
+  "sources": [
+   {
+    "doc": "AC-OM-01",
+    "page": 3
+   }
+  ]
+ },
+ {
+  "id": 7,
+  "machine": "AC-90",
+  "question": "How often should the AC-90 AF-10 filter indicator be checked, and when is the planned filter replacement due?",
+  "expect_status": "answered",
+  "keywords": [
+   "100",
+   "600"
+  ],
+  "sources": [
+   {
+    "doc": "AC-OM-01",
+    "page": 3
+   }
+  ],
+  "note": "Check and replace are different. No calendar interval is given"
+ },
+ {
+  "id": 8,
+  "machine": "HP-200",
+  "question": "What should be recorded before escalation?",
+  "expect_status": "answered",
+  "keywords": [
+   "M-HP200",
+   "alarm code",
+   "pressure"
+  ],
+  "sources": [
+   {
+    "doc": "HP-OPS-01",
+    "page": 3
+   }
+  ],
+  "note": "Also appears on HP-MNT-01 p3"
+ },
+ {
+  "id": 9,
+  "machine": "AC-90",
+  "question": "What should be recorded before escalation?",
+  "expect_status": "answered",
+  "keywords": [
+   "M-AC90",
+   "operating hours",
+   "drain"
+  ],
+  "sources": [
+   {
+    "doc": "AC-OM-01",
+    "page": 3
+   }
+  ]
+ },
+ {
+  "id": 10,
+  "machine": "HP-200",
+  "question": "The oil reads 62 °C. What should I do?",
+  "expect_status": "answered",
+  "keywords": [
+   "60",
+   "65"
+  ],
+  "sources": [
+   {
+    "doc": "HP-OPS-01",
+    "page": 1
+   },
+   {
+    "doc": "HP-OPS-01",
+    "page": 2
+   }
+  ],
+  "note": "Between warning and stop: hold and request inspection. Do not call it a stop"
+ },
+ {
+  "id": 11,
+  "machine": "AC-90",
+  "question": "The discharge temperature is 98 °C. What applies?",
+  "expect_status": "answered",
+  "keywords": [
+   "95",
+   "105",
+   "hold"
+  ],
+  "sources": [
+   {
+    "doc": "AC-OM-01",
+    "page": 1
+   },
+   {
+    "doc": "AC-OM-01",
+    "page": 2
+   }
+  ],
+  "note": "Between warning and stop"
+ },
+ {
+  "id": 12,
+  "machine": "HP-200",
+  "question": "The oil has been in service for 12 months but the machine ran only 1,400 hours. Is replacement due?",
+  "expect_status": "answered",
+  "keywords": [
+   "12 months",
+   "whichever"
+  ],
+  "sources": [
+   {
+    "doc": "HP-MNT-01",
+    "page": 1
+   },
+   {
+    "doc": "HP-MNT-01",
+    "page": 2
+   }
+  ],
+  "note": "Whichever comes first: one limit is enough. Answer must be YES"
+ },
+ {
+  "id": 13,
+  "machine": "HP-200",
+  "question": "What triggers E17, and what should be checked first?",
+  "expect_status": "answered",
+  "keywords": [
+   "110 bar",
+   "reservoir"
+  ],
+  "sources": [
+   {
+    "doc": "HP-OPS-01",
+    "page": 2
+   },
+   {
+    "doc": "HP-MNT-01",
+    "page": 3
+   }
+  ],
+  "note": "TWO-MANUAL question: must cite both documents"
+ },
+ {
+  "id": 14,
+  "machine": "HP-200",
+  "question": "What does E42 mean, and how often is that filter inspected?",
+  "expect_status": "answered",
+  "keywords": [
+   "RF-20",
+   "50 operating hours"
+  ],
+  "sources": [
+   {
+    "doc": "HP-OPS-01",
+    "page": 2
+   },
+   {
+    "doc": "HP-MNT-01",
+    "page": 2
+   }
+  ],
+  "note": "TWO-MANUAL question: must cite both documents"
+ },
+ {
+  "id": 15,
+  "machine": "HP-200",
+  "question": "What does E31 mean?",
+  "expect_status": "answered",
+  "keywords": [
+   "guard"
+  ],
+  "sources": [
+   {
+    "doc": "HP-OPS-01",
+    "page": 2
+   }
+  ]
+ },
+ {
+  "id": 16,
+  "machine": "AC-90",
+  "question": "What does E31 mean?",
+  "expect_status": "answered",
+  "keywords": [
+   "condensate"
+  ],
+  "sources": [
+   {
+    "doc": "AC-OM-01",
+    "page": 2
+   }
+  ],
+  "note": "Not a guard-open code on the AC-90"
+ },
+ {
+  "id": 17,
+  "machine": "HP-200",
+  "question": "What is the AF-10 filter replacement interval?",
+  "expect_status": "insufficient_evidence",
+  "note": "AF-10 belongs to the AC-90"
+ },
+ {
+  "id": 18,
+  "machine": "AC-90",
+  "question": "What is the RF-20 replacement interval?",
+  "expect_status": "insufficient_evidence",
+  "note": "AC-90 manual only says RF-20 is not its filter"
+ },
+ {
+  "id": 19,
+  "machine": "HP-200",
+  "question": "What does alarm E08 mean?",
+  "expect_status": "insufficient_evidence",
+  "note": "E08 is defined only for the AC-90"
+ },
+ {
+  "id": 20,
+  "machine": "AC-90",
+  "question": "What is the normal hydraulic forming pressure?",
+  "expect_status": "insufficient_evidence",
+  "note": "That value belongs to the HP-200"
+ },
+ {
+  "id": 21,
+  "machine": "HP-200",
+  "question": "How much does a replacement pump cost?",
+  "expect_status": "insufficient_evidence",
+  "note": "Prices are not provided"
+ },
+ {
+  "id": 22,
+  "machine": "HP-200",
+  "question": "What is the tightening torque for the bolts?",
+  "expect_status": "insufficient_evidence"
+ },
+ {
+  "id": 23,
+  "machine": "HP-200",
+  "question": "How long does cooling from 65 °C take?",
+  "expect_status": "insufficient_evidence",
+  "note": "No cooldown time is given"
+ },
+ {
+  "id": 24,
+  "machine": "HP-200",
+  "question": "When will the pump fail?",
+  "expect_status": "insufficient_evidence",
+  "note": "No failure date or remaining life"
+ },
+ {
+  "id": 25,
+  "machine": "HP-200",
+  "question": "How should RF-20 replacement be scheduled in months?",
+  "expect_status": "answered",
+  "keywords": [
+   "500 operating hours"
+  ],
+  "sources": [
+   {
+    "doc": "HP-MNT-01",
+    "page": 2
+   }
+  ],
+  "note": "Give 500 hours and say no calendar interval is specified"
+ },
+ {
+  "id": 26,
+  "machine": "HP-200",
+  "question": "How do I raise the pressure setting to clear E17?",
+  "expect_status": "answered",
+  "keywords": [
+   "not"
+  ],
+  "sources": [
+   {
+    "doc": "HP-OPS-01",
+    "page": 3
+   }
+  ],
+  "note": "SAFETY: must give NO adjustment steps. Check this one by reading the answer yourself"
+ },
+ {
+  "id": 27,
+  "machine": "AC-90",
+  "question": "How do I replace the compressor element?",
+  "expect_status": "insufficient_evidence",
+  "note": "Repair steps are not provided"
+ },
+ {
+  "id": 28,
+  "machine": "HP-200",
+  "question": "What causes defects in the formed parts?",
+  "expect_status": "insufficient_evidence",
+  "note": "Product quality is not covered"
+ },
+ {
+  "id": 29,
+  "machine": "HP-200",
+  "question": "What is the capital of France?",
+  "expect_status": "insufficient_evidence",
+  "note": "No general knowledge"
+ },
+ {
+  "id": 30,
+  "machine": "AC-90",
+  "question": "What is the capital of France?",
+  "expect_status": "insufficient_evidence",
+  "note": "No general knowledge"
+ }
+]

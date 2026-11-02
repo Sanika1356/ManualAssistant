@@ -3,8 +3,7 @@ from django.contrib.auth.models import User, Group
 
 
 class Command(BaseCommand):
-    help = "Create demo users for all three roles"
-
+    help = "Create demo users for all roles"
     def handle(self, *args, **kwargs):
 
         demo_users = [
@@ -16,6 +15,11 @@ class Command(BaseCommand):
             {
                 "username": "engineer_demo",
                 "password": "EngineerDemo@123",
+                "role": "Engineer",
+            },
+            {
+                "username": "engineer2_demo",
+                "password": "Engineer2Demo@123",
                 "role": "Engineer",
             },
             {
