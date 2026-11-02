@@ -37,16 +37,37 @@
         outline-offset: 2px;
     }
 
+    /* Icons */
+    .icon { width: 20px; height: 20px; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
     /* Top bar */
     .topbar {
         display: flex;
         align-items: center;
-        gap: 24px;
-        min-height: 60px;
+        gap: 22px;
+        min-height: 64px;
         padding: 8px 24px;
         background: var(--enamel-deep);
         color: #fff;
     }
+    .brand-mark {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 32px; height: 32px; border-radius: 9px; background: #fff; color: var(--enamel-deep); margin-right: 9px;
+    }
+    .brand { display: inline-flex; align-items: center; }
+    .topnav { display: flex; flex-wrap: wrap; gap: 6px; }
+    .topnav a {
+        display: inline-flex; align-items: center; gap: 7px; padding: 7px 15px; border-radius: 999px;
+        color: #d5e2ec; text-decoration: none; font-family: "Archivo", Arial, sans-serif; font-size: 15px; font-weight: 500;
+    }
+    .topnav a:hover { background: rgba(255,255,255,.12); color: #fff; }
+    .topnav a[aria-current="page"] { background: #fff; color: var(--enamel-deep); font-weight: 600; }
+    .topnav .icon { width: 17px; height: 17px; }
+    .avatar {
+        display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%;
+        background: #2f6a97; color: #fff; font: 600 14px "Archivo", Arial, sans-serif; margin-right: 8px; flex-shrink: 0;
+    }
+    .topbar-user { display: inline-flex; align-items: center; }
     .brand { font-size: 18px; font-weight: 700; color: #fff; text-decoration: none; }
     .topbar-role { color: #c8d7e3; font-size: 15px; }
     .topbar-user { margin-left: auto; font-size: 15px; color: #e4ecf2; overflow-wrap: anywhere; }
@@ -54,8 +75,8 @@
         background: transparent;
         border: 1px solid #7d9bb3;
         color: #fff;
-        border-radius: 3px;
-        padding: 5px 12px;
+        border-radius: 999px;
+        padding: 6px 15px;
         font-size: 14px;
         flex-shrink: 0;
     }
@@ -68,8 +89,10 @@
 
     .panel {
         background: var(--panel);
-        border: 1px solid var(--line);
-        border-radius: 4px;
+        border: 1px solid #dde3e8;
+        border-radius: 14px;
+        box-shadow: 0 1px 2px rgba(16, 51, 79, .05), 0 8px 24px rgba(16, 51, 79, .06);
+        overflow: hidden;
     }
     .panel-body { padding: 22px; }
     .panel-title { font-size: 19px; font-weight: 700; margin: 0 0 4px; }
@@ -78,9 +101,10 @@
     /* Forms */
     .form-label { font-weight: 600; font-size: 15px; margin-bottom: 4px; }
     .form-control, .form-select {
-        border-radius: 3px;
-        border-color: #aab5be;
+        border-radius: 10px;
+        border-color: #bcc6ce;
         font-size: 16px;
+        padding: 9px 13px;
     }
     .form-control:focus, .form-select:focus {
         border-color: var(--enamel);
@@ -90,9 +114,9 @@
         background: var(--enamel);
         border: 1px solid var(--enamel);
         color: #fff;
-        border-radius: 3px;
+        border-radius: 999px;
         font-weight: 600;
-        padding: 9px 18px;
+        padding: 9px 24px;
     }
     .btn-main:hover, .btn-main:focus { background: var(--enamel-deep); color: #fff; }
     .btn-main:disabled { background: #7f95a7; border-color: #7f95a7; color: #fff; }
@@ -100,14 +124,16 @@
         background: #fff;
         border: 1px solid #aab5be;
         color: var(--ink);
-        border-radius: 3px;
-        padding: 6px 12px;
+        border-radius: 999px;
+        padding: 6px 15px;
+        display: inline-flex; align-items: center; gap: 6px;
+        text-decoration: none;
         font-size: 14px;
     }
     .btn-plain:hover { border-color: var(--enamel); color: var(--enamel); }
 
     /* Messages */
-    .notice { padding: 10px 14px; border-radius: 3px; font-size: 15px; margin-bottom: 16px; border-left: 4px solid; }
+    .notice { padding: 11px 16px; border-radius: 10px; font-size: 15px; margin-bottom: 16px; border-left: 4px solid; }
     .notice-ok { background: var(--green-bg); color: var(--green); border-color: var(--green); }
     .notice-bad { background: var(--red-bg); color: var(--red); border-color: var(--red); }
 
@@ -131,7 +157,7 @@
     .code { font-weight: 600; font-size: 14px; white-space: nowrap; }
 
     /* Answer status */
-    .status { display: inline-block; padding: 2px 9px; border-radius: 3px; font-size: 13px; font-weight: 600; white-space: nowrap; }
+    .status { display: inline-block; padding: 3px 11px; border-radius: 999px; font-size: 13px; font-weight: 600; white-space: nowrap; }
     .status-ok { background: var(--green-bg); color: var(--green); }
     .status-none { background: var(--amber-bg); color: var(--amber); }
 
@@ -140,7 +166,7 @@
         border: 1px solid #b9c4cd;
         border-left: 5px solid var(--enamel);
         background: #f7f9fa;
-        border-radius: 3px;
+        border-radius: 10px;
         padding: 10px 14px;
         margin-top: 10px;
     }
@@ -152,8 +178,23 @@
     .plate summary { cursor: pointer; color: var(--steel); }
     .plate-text { margin: 6px 0 0; white-space: pre-line; max-height: 240px; overflow-y: auto; color: #33414e; }
 
+    /* Stat tiles */
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .stat {
+        display: flex; align-items: center; gap: 14px; background: #fff; padding: 16px 18px; border-radius: 14px;
+        border: 1px solid #dde3e8; box-shadow: 0 1px 2px rgba(16, 51, 79, .05), 0 8px 24px rgba(16, 51, 79, .06);
+    }
+    .stat-badge { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 12px; background: #e6eff6; color: var(--enamel); flex-shrink: 0; }
+    .stat-badge .icon { width: 23px; height: 23px; }
+    .stat-green .stat-badge { background: var(--green-bg); color: var(--green); }
+    .stat-amber .stat-badge { background: var(--amber-bg); color: var(--amber); }
+    .stat strong { display: block; font: 700 27px/1.1 "Archivo", Arial, sans-serif; }
+    .stat span.stat-label { color: var(--steel); font-size: 14px; }
+
     @media (max-width: 640px) {
-        .topbar { flex-wrap: wrap; padding: 8px 16px; gap: 6px 14px; }
+        .topbar { flex-wrap: wrap; padding: 8px 16px; gap: 6px 12px; }
+        .topnav { order: 3; width: 100%; }
+        .topnav a { padding: 6px 11px; font-size: 14px; }
         .topbar-role { display: none; }
         .page { padding: 20px 16px 40px; }
         .plate-link { margin-left: 0; width: 100%; }

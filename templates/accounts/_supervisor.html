@@ -1,8 +1,15 @@
 <style>
-    .tally { display: flex; flex-wrap: wrap; gap: 32px; margin-bottom: 24px; }
-    .tally strong { display: block; font-family: "Archivo", Arial, sans-serif; font-size: 30px; font-weight: 700; line-height: 1.1; }
-    .tally span { color: var(--steel); font-size: 15px; }
-    .tally .alert-count strong { color: var(--amber); }
+    .rate-panel { margin-bottom: 24px; }
+    .rate-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 28px; }
+    .bar-row { margin-bottom: 11px; }
+    .bar-row:last-child { margin-bottom: 0; }
+    .bar-label { display: flex; justify-content: space-between; gap: 12px; font-size: 15px; margin-bottom: 4px; }
+    .bar-label span { color: var(--steel); white-space: nowrap; }
+    .bar { height: 9px; border-radius: 999px; background: #e7ecf0; overflow: hidden; }
+    .bar i { display: block; height: 100%; background: var(--enamel); border-radius: 999px; }
+    .bar i.green { background: var(--green); }
+    .bar i.amber { background: #d08a12; }
+    .head-row { display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: flex-start; }
     .question-toggle {
         background: none; border: 0; padding: 0; text-align: left; color: var(--enamel);
         font-weight: 600; overflow-wrap: anywhere;
@@ -15,10 +22,26 @@
 </style>
 
 <main class="page">
-    <h1 class="page-title">Question history</h1>
-    <p class="page-lede">Every question Engineers have asked, and the answer they received. This view is read-only.</p>
+    <div class="head-row">
+        <div>
+            <h1 class="page-title">Question history</h1>
+            <p class="page-lede">Every question Engineers have asked, and the answer they received. This view is read-only.</p>
+        </div>
+        <button type="button" class="btn-plain" id="exportButton"></button>
+    </div>
 
-    <div class="tally" id="tally"></div>
+    <div class="stats" id="tally"></div>
+
+    <section class="panel rate-panel" aria-label="Summary"><div class="panel-body rate-grid">
+        <div>
+            <h2 class="panel-title mb-3">Answer rate</h2>
+            <div id="rateBars"></div>
+        </div>
+        <div>
+            <h2 class="panel-title mb-3">Questions by machine</h2>
+            <div id="machineBars"></div>
+        </div>
+    </div></section>
     <div id="historyNotice" aria-live="polite"></div>
 
     <section class="panel" aria-label="Question history">
@@ -68,15 +91,75 @@
         return `${q.machine_name} (${q.machine_model})`;
     }
 
+    function barRow(label, value, total, tone, note) {
+        const share = total ? Math.round((value / total) * 100) : 0;
+        const fill = el("i", { class: tone || "" });
+        fill.style.width = `${share}%`;
+        return el("div", { class: "bar-row" },
+            el("div", { class: "bar-label" }, el("div", { text: label }), el("span", { text: note || `${value} (${share}%)` })),
+            el("div", { class: "bar" }, fill)
+        );
+    }
+
     function drawTally() {
         const answered = questions.filter(q => q.status === "answered").length;
-        const box = document.getElementById("tally");
-        box.replaceChildren(
-            el("div", {}, el("strong", { text: questions.length }), el("span", { text: "Questions asked" })),
-            el("div", {}, el("strong", { text: answered }), el("span", { text: "Answered" })),
-            el("div", { class: "alert-count" }, el("strong", { text: questions.length - answered }), el("span", { text: "Not in the manuals" })),
-            el("div", {}, el("strong", { text: new Set(questions.map(q => q.username)).size }), el("span", { text: "Engineers" }))
+        const total = questions.length;
+        document.getElementById("tally").replaceChildren(
+            statTile("ask", total, "Questions asked"),
+            statTile("check", answered, "Answered", "green"),
+            statTile("alert", total - answered, "Not in the manuals", "amber"),
+            statTile("people", new Set(questions.map(q => q.username)).size, "Engineers")
         );
+
+        document.getElementById("rateBars").replaceChildren(
+            barRow("Answered from the manuals", answered, total, "green"),
+            barRow("Not in the manuals", total - answered, total, "amber")
+        );
+
+        const counts = new Map();
+        questions.forEach(q => counts.set(machineLabel(q), (counts.get(machineLabel(q)) || 0) + 1));
+        const machineBars = document.getElementById("machineBars");
+        machineBars.replaceChildren();
+        if (!counts.size) machineBars.append(el("p", { class: "text-muted mb-0", text: "No questions yet." }));
+        [...counts.entries()].sort((a, b) => b[1] - a[1]).forEach(([label, count]) => {
+            machineBars.append(barRow(label, count, total));
+        });
+    }
+
+    function filteredQuestions() {
+        const term = document.getElementById("historySearch").value.trim().toLowerCase();
+        const status = document.getElementById("statusFilter").value;
+        const engineer = document.getElementById("engineerFilter").value;
+        const machine = document.getElementById("machineFilter").value;
+
+        return questions.filter(q =>
+            (!status || q.status === status) &&
+            (!engineer || q.username === engineer) &&
+            (!machine || machineLabel(q) === machine) &&
+            `${q.text} ${q.answer}`.toLowerCase().includes(term)
+        );
+    }
+
+    // Download what is on screen as a spreadsheet file.
+    function exportCsv() {
+        const quote = value => {
+            let text = String(value ?? "");
+            // A leading = + - @ would run as a formula when opened in Excel.
+            if (/^[=+\-@]/.test(text)) text = "'" + text;
+            return `"${text.replace(/"/g, '""')}"`;
+        };
+        const rows = [["Asked", "Engineer", "Machine ID", "Machine", "Question", "Result", "Answer", "Sources"]];
+        filteredQuestions().forEach(q => rows.push([
+            new Date(q.created_at).toISOString(), q.username, q.machine_code, machineLabel(q), q.text,
+            q.status === "answered" ? "Answered" : "Not in the manuals", q.answer,
+            (q.sources || []).map(s => `${s.document_id || s.manual_name} rev ${s.revision} p${s.page_number}`).join("; "),
+        ]));
+        const blob = new Blob(["\ufeff" + rows.map(row => row.map(quote).join(",")).join("\r\n")], { type: "text/csv" });
+        const link = el("a", { href: URL.createObjectURL(blob), download: "question-history.csv" });
+        document.body.append(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(link.href);
     }
 
     function detailRow(q) {
@@ -92,17 +175,7 @@
     }
 
     function drawRows() {
-        const term = document.getElementById("historySearch").value.trim().toLowerCase();
-        const status = document.getElementById("statusFilter").value;
-        const engineer = document.getElementById("engineerFilter").value;
-        const machine = document.getElementById("machineFilter").value;
-
-        const found = questions.filter(q =>
-            (!status || q.status === status) &&
-            (!engineer || q.username === engineer) &&
-            (!machine || machineLabel(q) === machine) &&
-            `${q.text} ${q.answer}`.toLowerCase().includes(term)
-        );
+        const found = filteredQuestions();
 
         const rows = document.getElementById("historyRows");
         rows.replaceChildren();
@@ -134,6 +207,10 @@
     ["historySearch", "statusFilter", "engineerFilter", "machineFilter"].forEach(id => {
         document.getElementById(id).addEventListener("input", drawRows);
     });
+
+    const exportButton = document.getElementById("exportButton");
+    exportButton.append(icon("download"), "Download CSV");
+    exportButton.addEventListener("click", exportCsv);
 
     (async function start() {
         try {

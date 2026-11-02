@@ -1,105 +1,127 @@
-<main class="page">
-    <h1 class="page-title">Machines and manuals</h1>
-    <p class="page-lede">Register a machine, then upload its manuals. Engineers can ask questions as soon as a manual is uploaded.</p>
+<style>
+    .view[hidden] { display: none; }
+    .form-page { max-width: 720px; }
+    .steps { display: flex; gap: 10px; align-items: center; color: var(--steel); font-size: 15px; margin: 0 0 22px; flex-wrap: wrap; }
+    .steps b { display: inline-flex; width: 25px; height: 25px; align-items: center; justify-content: center; border-radius: 50%; background: #dbe4eb; color: var(--ink); font: 600 13px "Archivo", Arial, sans-serif; margin-right: 6px; }
+    .steps .now { color: var(--ink); font-weight: 600; }
+    .steps .now b { background: var(--enamel); color: #fff; }
+    .next-action { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 18px; padding-top: 18px; border-top: 1px solid #e3e8ec; }
+    .dropzone {
+        border: 2px dashed #aebbc5; border-radius: 12px; padding: 24px; text-align: center; background: #f8fafb; cursor: pointer; display: block; margin: 0;
+    }
+    .dropzone:hover, .dropzone.over { border-color: var(--enamel); background: #eef4f9; }
+    .dropzone:focus-within { outline: 3px solid #e0a100; outline-offset: 2px; }
+    .dropzone .icon { width: 30px; height: 30px; color: var(--enamel); margin-bottom: 6px; }
+    .dropzone strong { display: block; }
+    .dropzone small { color: var(--steel); font-size: 14px; }
+</style>
 
+<main class="page">
     <div id="adminNotice" aria-live="polite"></div>
 
-    <div class="row g-4 mb-4">
-        <div class="col-lg-4">
-            <section class="panel h-100">
-                <div class="panel-body">
-                    <h2 class="panel-title">Register a machine</h2>
-                    <p class="panel-note">Use the ID from your machine list.</p>
-                    <form id="machineForm">
-                        <div class="mb-3">
-                            <label class="form-label" for="machineCode">Machine ID</label>
-                            <input class="form-control" id="machineCode" maxlength="50" placeholder="M-HP200" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label" for="machineName">Machine name</label>
-                            <input class="form-control" id="machineName" maxlength="255" placeholder="Hydraulic forming press" required>
-                        </div>
-                        <div class="mb-4">
-                            <label class="form-label" for="machineModel">Model</label>
-                            <input class="form-control" id="machineModel" maxlength="255" placeholder="HP-200" required>
-                        </div>
-                        <button class="btn btn-main" id="machineSubmit" type="submit">Register machine</button>
-                    </form>
-                </div>
-            </section>
-        </div>
+    <div class="stats" id="adminStats"></div>
 
-        <div class="col-lg-8">
-            <section class="panel h-100">
-                <div class="panel-body">
-                    <h2 class="panel-title">Upload a manual</h2>
-                    <p class="panel-note">PDF with readable text, up to 25 MB. Page numbers are kept for citations.</p>
-                    <form id="manualForm">
-                        <div class="row g-3">
-                            <div class="col-md-6">
-                                <label class="form-label" for="manualMachine">Machine</label>
-                                <select class="form-select" id="manualMachine" required>
-                                    <option value="">Choose a machine</option>
-                                </select>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label" for="manualDocumentId">Document ID</label>
-                                <input class="form-control" id="manualDocumentId" maxlength="50" placeholder="HP-OPS-01" required>
-                            </div>
-                            <div class="col-md-8">
-                                <label class="form-label" for="manualName">Manual name</label>
-                                <input class="form-control" id="manualName" maxlength="255" placeholder="HP-200 Operations" required>
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label" for="manualRevision">Revision</label>
-                                <input class="form-control" id="manualRevision" maxlength="100" placeholder="1.0" required>
-                            </div>
-                            <div class="col-12">
-                                <label class="form-label" for="manualFile">PDF file</label>
-                                <input class="form-control" id="manualFile" type="file" accept=".pdf,application/pdf" required>
-                            </div>
-                        </div>
-                        <button class="btn btn-main mt-4" id="uploadSubmit" type="submit">Upload manual</button>
-                    </form>
+    <section class="view" id="view-machine">
+        <h1 class="page-title">Register a machine</h1>
+        <p class="steps"><span class="now"><b>1</b>Register the machine</span><span><b>2</b>Upload its manuals</span></p>
+        <div class="panel form-page"><div class="panel-body">
+            <form id="machineForm">
+                <div class="mb-3">
+                    <label class="form-label" for="machineCode">Machine ID</label>
+                    <input class="form-control" id="machineCode" maxlength="50" placeholder="M-HP200" required>
                 </div>
-            </section>
-        </div>
-    </div>
-
-    <section class="panel mb-4" aria-labelledby="libraryTitle">
-        <div class="panel-body pb-3">
-            <div class="row g-2 align-items-end">
-                <div class="col-md">
-                    <h2 class="panel-title" id="libraryTitle">Manual library</h2>
-                    <p class="panel-note mb-0" id="manualCount"></p>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-7">
+                        <label class="form-label" for="machineName">Machine name</label>
+                        <input class="form-control" id="machineName" maxlength="255" placeholder="Hydraulic forming press" required>
+                    </div>
+                    <div class="col-md-5">
+                        <label class="form-label" for="machineModel">Model</label>
+                        <input class="form-control" id="machineModel" maxlength="255" placeholder="HP-200" required>
+                    </div>
                 </div>
-                <div class="col-md-5">
-                    <label class="form-label" for="manualSearch">Search manuals</label>
-                    <input class="form-control" id="manualSearch" type="search" placeholder="Document ID, manual or machine">
-                </div>
-            </div>
-        </div>
-        <div class="table-wrap">
-            <table class="data-table">
-                <thead>
-                    <tr><th>Document ID</th><th>Manual</th><th>Revision</th><th>Machine ID</th><th>Machine</th><th>Uploaded</th><th>PDF</th></tr>
-                </thead>
-                <tbody id="manualRows"><tr><td colspan="7" class="empty">Loading manuals</td></tr></tbody>
-            </table>
-        </div>
+                <button class="btn btn-main" id="machineSubmit" type="submit">Register machine</button>
+            </form>
+            <div id="machineNext"></div>
+        </div></div>
     </section>
 
-    <section class="panel" aria-labelledby="machinesTitle">
-        <div class="panel-body pb-3">
-            <h2 class="panel-title" id="machinesTitle">Registered machines</h2>
-            <p class="panel-note mb-0" id="machineCount"></p>
-        </div>
-        <div class="table-wrap">
-            <table class="data-table">
-                <thead><tr><th>Machine ID</th><th>Name</th><th>Model</th><th>Manuals</th></tr></thead>
-                <tbody id="machineRows"><tr><td colspan="4" class="empty">Loading machines</td></tr></tbody>
-            </table>
-        </div>
+    <section class="view" id="view-manual" hidden>
+        <h1 class="page-title">Upload a manual</h1>
+        <p class="steps"><span><b>1</b>Register the machine</span><span class="now"><b>2</b>Upload its manuals</span></p>
+        <div class="panel form-page"><div class="panel-body">
+            <form id="manualForm">
+                <div class="row g-3">
+                    <div class="col-md-7">
+                        <label class="form-label" for="manualMachine">Machine</label>
+                        <select class="form-select" id="manualMachine" required>
+                            <option value="">Choose a machine</option>
+                        </select>
+                    </div>
+                    <div class="col-md-5">
+                        <label class="form-label" for="manualDocumentId">Document ID</label>
+                        <input class="form-control" id="manualDocumentId" maxlength="50" placeholder="HP-OPS-01" required>
+                    </div>
+                    <div class="col-md-8">
+                        <label class="form-label" for="manualName">Manual name</label>
+                        <input class="form-control" id="manualName" maxlength="255" placeholder="HP-200 Operations" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label" for="manualRevision">Revision</label>
+                        <input class="form-control" id="manualRevision" maxlength="100" placeholder="1.0" required>
+                    </div>
+                    <div class="col-12">
+                        <span class="form-label d-block">PDF file</span>
+                        <label class="dropzone" id="dropzone">
+                            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M12 17v-6M9.5 13.5 12 11l2.5 2.5"/></svg>
+                            <strong id="dropText">Drop the PDF here, or click to choose</strong>
+                            <small>Readable text, up to 25 MB</small>
+                            <input class="visually-hidden" id="manualFile" type="file" accept=".pdf,application/pdf">
+                        </label>
+                    </div>
+                </div>
+                <button class="btn btn-main mt-4" id="uploadSubmit" type="submit">Upload manual</button>
+            </form>
+        </div></div>
+    </section>
+
+    <section class="view" id="view-library" hidden>
+        <h1 class="page-title mb-3">Library</h1>
+        <section class="panel mb-4" aria-labelledby="libraryTitle">
+            <div class="panel-body pb-3">
+                <div class="row g-2 align-items-end">
+                    <div class="col-md">
+                        <h2 class="panel-title" id="libraryTitle">Manuals</h2>
+                        <p class="panel-note mb-0" id="manualCount"></p>
+                    </div>
+                    <div class="col-md-5">
+                        <label class="form-label" for="manualSearch">Search manuals</label>
+                        <input class="form-control" id="manualSearch" type="search" placeholder="Document ID, manual or machine">
+                    </div>
+                </div>
+            </div>
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead>
+                        <tr><th>Document ID</th><th>Manual</th><th>Revision</th><th>Machine ID</th><th>Machine</th><th>Uploaded</th><th>PDF</th></tr>
+                    </thead>
+                    <tbody id="manualRows"><tr><td colspan="7" class="empty">Loading manuals</td></tr></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="panel" aria-labelledby="machinesTitle">
+            <div class="panel-body pb-3">
+                <h2 class="panel-title" id="machinesTitle">Machines</h2>
+                <p class="panel-note mb-0" id="machineCount"></p>
+            </div>
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead><tr><th>Machine ID</th><th>Name</th><th>Model</th><th>Manuals</th></tr></thead>
+                    <tbody id="machineRows"><tr><td colspan="4" class="empty">Loading machines</td></tr></tbody>
+                </table>
+            </div>
+        </section>
     </section>
 </main>
 
@@ -171,11 +193,63 @@
         });
     }
 
+    function drawStats() {
+        const box = document.getElementById("adminStats");
+        const withManual = machines.filter(machine =>
+            manuals.some(m => m.machine_name === machine.name && m.machine_model === machine.model)
+        ).length;
+        box.replaceChildren(
+            statTile("gear", machines.length, "Machines registered"),
+            statTile("book", manuals.length, "Manuals in the library"),
+            statTile("check", `${withManual} of ${machines.length}`, "Machines with a manual", "green")
+        );
+    }
+
+    function showView(name) {
+        const view = ["machine", "manual", "library"].includes(name) ? name : "machine";
+        document.querySelectorAll(".view").forEach(section => { section.hidden = section.id !== `view-${view}`; });
+        document.querySelectorAll(".topnav a").forEach(link => {
+            if (link.dataset.view === view) link.setAttribute("aria-current", "page");
+            else link.removeAttribute("aria-current");
+        });
+    }
+
+    window.addEventListener("hashchange", () => {
+        notice.replaceChildren();
+        showView(location.hash.slice(1));
+    });
+    showView(location.hash.slice(1) || "machine");
+
+    // Choosing or dropping a PDF
+    const dropzone = document.getElementById("dropzone");
+    const fileInput = document.getElementById("manualFile");
+    const dropText = document.getElementById("dropText");
+
+    function showFileName() {
+        dropText.textContent = fileInput.files[0] ? fileInput.files[0].name : "Drop the PDF here, or click to choose";
+    }
+    fileInput.addEventListener("change", showFileName);
+    ["dragenter", "dragover"].forEach(type => dropzone.addEventListener(type, event => {
+        event.preventDefault();
+        dropzone.classList.add("over");
+    }));
+    ["dragleave", "drop"].forEach(type => dropzone.addEventListener(type, event => {
+        event.preventDefault();
+        dropzone.classList.remove("over");
+    }));
+    dropzone.addEventListener("drop", event => {
+        if (event.dataTransfer.files.length) {
+            fileInput.files = event.dataTransfer.files;
+            showFileName();
+        }
+    });
+
     async function refresh() {
         try {
             [machines, manuals] = await Promise.all([api("/api/machines/"), api("/api/manuals/")]);
             drawManuals();
             drawMachines();
+            drawStats();
         } catch (error) {
             showNotice(notice, error.message, "bad");
         }
@@ -187,6 +261,7 @@
         event.preventDefault();
         const form = event.target;
         const button = document.getElementById("machineSubmit");
+        document.getElementById("machineNext").replaceChildren();
         button.disabled = true;
         button.textContent = "Registering";
         try {
@@ -203,6 +278,10 @@
             await refresh();
             document.getElementById("manualMachine").value = machine.id;
             showNotice(notice, `Registered ${machine.name} (${machine.model}).`, "ok");
+            document.getElementById("machineNext").replaceChildren(el("div", { class: "next-action" },
+                el("a", { class: "btn btn-main", href: "#manual", text: "Upload a manual for this machine" }),
+                el("a", { class: "btn-plain", href: "#library", text: "View library" })
+            ));
         } catch (error) {
             showNotice(notice, error.message, "bad");
         } finally {
@@ -220,6 +299,10 @@
             showNotice(notice, "Choose a machine before uploading.", "bad");
             return;
         }
+        if (!fileInput.files[0]) {
+            showNotice(notice, "Choose a PDF before uploading.", "bad");
+            return;
+        }
 
         const data = new FormData();
         data.append("machine_name", machine.name);
@@ -234,6 +317,7 @@
         try {
             const manual = await api("/api/manuals/upload/", { method: "POST", body: data });
             form.reset();
+            showFileName();
             await refresh();
             showNotice(notice, `Uploaded ${manual.name}. Engineers can now ask about it.`, "ok");
         } catch (error) {
