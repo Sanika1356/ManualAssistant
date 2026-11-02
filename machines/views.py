@@ -1,4 +1,3 @@
-
 from django.http import FileResponse
 from django.shortcuts import get_object_or_404
 
@@ -30,7 +29,6 @@ class MachineListCreateAPIView(APIView):
 
     def get_permissions(self):
         if self.request.method == "GET":
-
             return [IsAuthenticated()]
 
         return [IsAuthenticated(), IsAdministrator()]
@@ -39,10 +37,7 @@ class MachineListCreateAPIView(APIView):
         machines = Machine.objects.all()
         serializer = MachineSerializer(machines, many=True)
 
-        return Response(
-            serializer.data,
-            status=status.HTTP_200_OK,
-        )
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     def post(self, request, *args, **kwargs):
         serializer = MachineSerializer(data=request.data)
@@ -63,24 +58,25 @@ class MachineListCreateAPIView(APIView):
 
 class ManualListAPIView(APIView):
     """
-    Allows Administrators to view all uploaded manuals.
+    Lets every role read the list of uploaded manuals. Uploading stays
+    Administrator-only.
     """
 
-    permission_classes = [IsAuthenticated, IsAdministrator]
+    permission_classes = [
+        IsAuthenticated,
+        (IsAdministrator | IsEngineer | IsSupervisor),
+    ]
 
     def get(self, request, *args, **kwargs):
         manuals = Manual.objects.select_related("machine").all()
         serializer = ManualListSerializer(manuals, many=True)
 
-        return Response(
-            serializer.data,
-            status=status.HTTP_200_OK,
-        )
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class ManualUploadAPIView(APIView):
     """
-    Allows Administrators to upload PDF manuals.
+    API endpoint for Administrators to upload PDF manuals for machines.
     """
 
     parser_classes = [MultiPartParser, FormParser]
@@ -103,8 +99,10 @@ class ManualUploadAPIView(APIView):
         response_data = {
             "id": manual.id,
             "name": manual.name,
+            "document_id": manual.document_id,
             "revision": manual.revision,
             "machine_id": manual.machine.id,
+            "machine_code": manual.machine.machine_code,
             "machine_name": manual.machine.name,
             "machine_model": manual.machine.model,
             "uploaded_at": manual.uploaded_at.isoformat(),
@@ -118,8 +116,9 @@ class ManualUploadAPIView(APIView):
 
 class ManualPDFViewAPIView(APIView):
     """
-    Allows Administrators, Engineers and Supervisors
-    to view uploaded PDF manuals.
+    Protected endpoint for viewing uploaded PDF manuals.
+
+    Only Administrators, Engineers and Supervisors can view manuals.
     """
 
     permission_classes = [
@@ -128,6 +127,7 @@ class ManualPDFViewAPIView(APIView):
     ]
 
     def get(self, request, manual_id, *args, **kwargs):
+
         manual = get_object_or_404(Manual, id=manual_id)
 
         if not manual.file:

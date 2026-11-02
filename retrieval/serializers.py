@@ -33,6 +33,7 @@ class QuestionSourceSerializer(serializers.ModelSerializer):
         fields = [
             "passage_number",
             "manual_id",
+            "document_id",
             "manual_name",
             "revision",
             "page_number",
@@ -54,6 +55,7 @@ class QuestionDetailSerializer(serializers.ModelSerializer):
     machine_id = serializers.IntegerField(read_only=True)
     machine_name = serializers.CharField(source="machine.name", read_only=True)
     machine_model = serializers.CharField(source="machine.model", read_only=True)
+    machine_code = serializers.CharField(source="machine.machine_code", read_only=True)
     username = serializers.CharField(source="user.username", read_only=True)
     sources = QuestionSourceSerializer(many=True, read_only=True)
 
@@ -63,6 +65,7 @@ class QuestionDetailSerializer(serializers.ModelSerializer):
             "id",
             "username",
             "machine_id",
+            "machine_code",
             "machine_name",
             "machine_model",
             "text",

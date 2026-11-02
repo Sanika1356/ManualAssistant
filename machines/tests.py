@@ -2,12 +2,16 @@
 import os
 import shutil
 import tempfile
-
+import unittest
+from io import StringIO
+from pathlib import Path
 import pymupdf
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.core.exceptions import ValidationError
+from django.core.management import call_command
+from django.core.management.base import CommandError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db.utils import IntegrityError
 from django.test import TestCase, override_settings
@@ -932,3 +936,159 @@ class ManualPDFViewAPITests(TestCase):
             response.status_code,
             status.HTTP_404_NOT_FOUND,
         )
+
+
+class MachineAndDocumentIdTests(TestCase):
+    """Machine IDs and Document IDs are saved, shown and kept unique."""
+
+    def setUp(self):
+        self.client = APIClient()
+        group, _ = Group.objects.get_or_create(name="Administrator")
+        user = get_user_model().objects.create_user(username="id_admin", password="Pass@12345")
+        user.groups.add(group)
+        self.client.force_authenticate(user=user)
+
+    def test_machine_id_is_saved_and_listed(self):
+        response = self.client.post(
+            "/api/machines/",
+            {"machine_code": " M-HP200 ", "name": "Press", "model": "HP-200"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["machine_code"], "M-HP200")
+
+        listed = self.client.get("/api/machines/")
+        self.assertEqual(listed.data[0]["machine_code"], "M-HP200")
+
+    def test_same_machine_id_cannot_be_used_twice(self):
+        Machine.objects.create(machine_code="M-HP200", name="Press", model="HP-200")
+        response = self.client.post(
+            "/api/machines/",
+            {"machine_code": "M-HP200", "name": "Other", "model": "X"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Machine ID", str(response.data))
+
+    def test_machines_without_an_id_are_still_allowed(self):
+        Machine.objects.create(name="A", model="1")
+        Machine.objects.create(name="B", model="2")
+        self.assertEqual(Machine.objects.filter(machine_code="").count(), 2)
+
+    def test_manual_list_shows_both_ids(self):
+        machine = Machine.objects.create(machine_code="M-HP200", name="Press", model="HP-200")
+        Manual.objects.create(
+            machine=machine, name="Ops", revision="1.0",
+            document_id="HP-OPS-01", file="manuals/ops.pdf",
+        )
+        data = self.client.get("/api/manuals/").data[0]
+        self.assertEqual(data["document_id"], "HP-OPS-01")
+        self.assertEqual(data["machine_code"], "M-HP200")
+        
+
+@override_settings(RAG_EMBEDDING_BACKEND="hash", CHROMA_PATH=None)
+class LoadPackTests(TestCase):
+    """One command loads the pack, and running it again adds no duplicates."""
+
+    ROWS = [
+        ("M-HP200", "HP-200", "Hydraulic forming press", "HP-OPS-01", "HP200_Operations_Rev1_0.pdf"),
+        ("M-HP200", "HP-200", "Hydraulic forming press", "HP-MNT-01", "HP200_Maintenance_Rev1_0.pdf"),
+        ("M-AC90", "AC-90", "Air compressor", "AC-OM-01", "AC90_Operations_Maintenance_Rev1_0.pdf"),
+    ]
+
+    def setUp(self):
+        self.pack = tempfile.mkdtemp()
+        self.media = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.pack, ignore_errors=True)
+        self.addCleanup(shutil.rmtree, self.media, ignore_errors=True)
+        override = override_settings(MEDIA_ROOT=self.media)
+        override.enable()
+        self.addCleanup(override.disable)
+
+        os.mkdir(os.path.join(self.pack, "Manuals"))
+        lines = ["machine_id,model,machine_name,document_id,revision,pdf_filename"]
+        for code, model, name, document_id, filename in self.ROWS:
+            lines.append(f"{code},{model},{name},{document_id},1.0,{filename}")
+            document = pymupdf.open()
+            for page in range(3):
+                document.new_page().insert_text((50, 50), f"{document_id} page {page + 1} text")
+            document.save(os.path.join(self.pack, "Manuals", filename))
+            document.close()
+
+        # Windows line endings, like the organisers' file.
+        with open(os.path.join(self.pack, "machine_manual_index.csv"), "w", newline="", encoding="utf-8") as file:
+            file.write("\r\n".join(lines) + "\r\n")
+
+    def test_pack_loads_two_machines_three_manuals_nine_pages(self):
+        call_command("load_pack", self.pack, stdout=StringIO())
+
+        self.assertEqual(Machine.objects.count(), 2)
+        self.assertEqual(Manual.objects.count(), 3)
+        self.assertEqual(
+            Chunk.objects.values("manual_id", "page_number").distinct().count(), 9
+        )
+        manual = Manual.objects.get(document_id="AC-OM-01")
+        self.assertEqual(manual.name, "AC-OM-01 Operations and Maintenance")
+        self.assertEqual(manual.machine.machine_code, "M-AC90")
+
+    def test_each_page_is_one_chunk_with_a_header_line(self):
+        call_command("load_pack", self.pack, stdout=StringIO())
+
+        self.assertEqual(Chunk.objects.count(), 9)
+        chunk = Chunk.objects.get(manual__document_id="HP-OPS-01", page_number=2)
+        self.assertEqual(chunk.text.split("\n")[0], "HP-OPS-01 | M-HP200 | Rev 1.0 | Page 2")
+        self.assertIn("HP-OPS-01 page 2 text", chunk.text)
+
+    def test_running_twice_creates_no_duplicates(self):
+        call_command("load_pack", self.pack, stdout=StringIO())
+        chunks = Chunk.objects.count()
+        call_command("load_pack", self.pack, stdout=StringIO())
+
+        self.assertEqual(Machine.objects.count(), 2)
+        self.assertEqual(Manual.objects.count(), 3)
+        self.assertEqual(Chunk.objects.count(), chunks)
+
+    def test_existing_machine_gets_its_id_filled_in(self):
+        Machine.objects.create(name="Air compressor", model="AC-90")
+        call_command("load_pack", self.pack, stdout=StringIO())
+
+        self.assertEqual(Machine.objects.count(), 2)
+        self.assertEqual(Machine.objects.get(model="AC-90").machine_code, "M-AC90")
+
+    def test_missing_pdf_stops_before_changing_anything(self):
+        os.remove(os.path.join(self.pack, "Manuals", "AC90_Operations_Maintenance_Rev1_0.pdf"))
+
+        with self.assertRaises(CommandError):
+            call_command("load_pack", self.pack, stdout=StringIO())
+
+        self.assertEqual(Machine.objects.count(), 0)
+        self.assertEqual(Manual.objects.count(), 0)
+        
+
+REAL_PACK = Path(os.environ.get("STUDENT_PACK", Path.home() / "Student_Pack"))
+
+
+@unittest.skipUnless((REAL_PACK / "machine_manual_index.csv").is_file(), "Real student pack not found")
+@override_settings(RAG_EMBEDDING_BACKEND="hash", CHROMA_PATH=None)
+class RealPackTests(TestCase):
+    """Checks the organisers' three real PDFs. Skipped if the pack is not on this laptop."""
+
+    def setUp(self):
+        media = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, media, ignore_errors=True)
+        override = override_settings(MEDIA_ROOT=media)
+        override.enable()
+        self.addCleanup(override.disable)
+        call_command("load_pack", str(REAL_PACK), stdout=StringIO())
+
+    def test_nine_pages_are_stored(self):
+        self.assertEqual(Machine.objects.count(), 2)
+        self.assertEqual(Manual.objects.count(), 3)
+        self.assertEqual(Chunk.objects.count(), 9)
+
+    def test_known_text_is_on_the_right_page(self):
+        expected = [("HP-MNT-01", 2, "E42"), ("HP-OPS-01", 2, "E17")]
+        for document_id, page, phrase in expected:
+            chunk = Chunk.objects.get(manual__document_id=document_id, page_number=page)
+            self.assertIn(phrase, chunk.text)
+            self.assertIn(f"Page {page}", chunk.text.split("\n")[0])

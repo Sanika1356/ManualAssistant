@@ -1,0 +1,165 @@
+<script>
+    function getCookie(name) {
+        for (let cookie of document.cookie.split(";")) {
+            cookie = cookie.trim();
+            if (cookie.startsWith(name + "=")) {
+                return decodeURIComponent(cookie.substring(name.length + 1));
+            }
+        }
+        return null;
+    }
+
+    // Turn any API error into one readable sentence.
+    function errorText(data, fallback) {
+        if (!data || typeof data !== "object") return fallback;
+        if (data.detail) return String(data.detail);
+        if (data.error) return String(data.error);
+        const parts = [];
+        for (const value of Object.values(data)) {
+            parts.push(Array.isArray(value) ? value.join(" ") : String(value));
+        }
+        return parts.join(" ") || fallback;
+    }
+
+    async function api(url, options = {}) {
+        const settings = { credentials: "same-origin", ...options };
+        settings.headers = { ...(options.headers || {}) };
+
+        if (settings.method && settings.method !== "GET") {
+            settings.headers["X-CSRFToken"] = getCookie("csrftoken");
+        }
+
+        let response;
+        try {
+            response = await fetch(url, settings);
+        } catch {
+            throw new Error("Could not reach the server. Check that it is running, then try again.");
+        }
+
+        if (response.status === 401 || response.status === 403) {
+            const me = await fetch("/api/me/", { credentials: "same-origin" });
+            if (!me.ok) {
+                window.location.href = "/login/";
+                throw new Error("Your session has ended. Sign in again.");
+            }
+        }
+
+        const text = await response.text();
+        let data = {};
+        try { data = text ? JSON.parse(text) : {}; } catch { data = {}; }
+
+        if (!response.ok) {
+            throw new Error(errorText(data, `The request failed (error ${response.status}).`));
+        }
+        return data;
+    }
+
+    // Build an element safely. Text is never treated as HTML.
+    function el(tag, props = {}, ...children) {
+        const node = document.createElement(tag);
+        for (const [key, value] of Object.entries(props)) {
+            if (key === "class") node.className = value;
+            else if (key === "text") node.textContent = value;
+            else if (key.startsWith("on")) node.addEventListener(key.slice(2), value);
+            else node.setAttribute(key, value);
+        }
+        for (const child of children) {
+            if (child !== null && child !== undefined) node.append(child);
+        }
+        return node;
+    }
+
+    function showNotice(target, message, kind) {
+        target.replaceChildren(el("div", { class: `notice notice-${kind}`, role: "status", text: message }));
+    }
+
+    function formatDate(value) {
+        if (!value) return "";
+        return new Date(value).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+    }
+
+    function formatDateTime(value) {
+        if (!value) return "";
+        return new Date(value).toLocaleString(undefined, {
+            day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
+        });
+    }
+
+    function statusBadge(status) {
+        return status === "answered"
+            ? el("span", { class: "status status-ok", text: "Answered" })
+            : el("span", { class: "status status-none", text: "Not in the manuals" });
+    }
+
+    // Answer text, with citations like [1] turned into links to the source page.
+    function answerWithLinks(text, sources) {
+        const wrap = el("p", { class: "answer-text" });
+        const byNumber = new Map((sources || []).map(source => [source.passage_number, source]));
+
+        text.split(/(\[\d+\])/).forEach(part => {
+            const match = part.match(/^\[(\d+)\]$/);
+            const source = match ? byNumber.get(Number(match[1])) : null;
+            if (source && source.pdf_url) {
+                wrap.append(el("a", {
+                    href: source.pdf_url, target: "_blank", rel: "noopener", class: "cite",
+                    title: `Open ${source.document_id || source.manual_name}, page ${source.page_number}`,
+                    text: part,
+                }));
+            } else {
+                wrap.append(part);
+            }
+        });
+        return wrap;
+    }
+
+    // One source: document, revision and page, with the passage and a PDF link.
+    function sourcePlate(source) {
+        const head = el("div", { class: "plate-head" },
+            el("span", { class: "plate-num", text: `[${source.passage_number}]` }),
+            el("span", { class: "code", text: source.document_id || source.manual_name }),
+            el("span", { class: "plate-meta", text: `${source.manual_name}, revision ${source.revision}, page ${source.page_number}` }),
+            source.pdf_url
+                ? el("a", { class: "plate-link", href: source.pdf_url, target: "_blank", rel: "noopener", text: `Open page ${source.page_number}` })
+                : el("span", { class: "plate-link plate-meta", text: "Manual removed" })
+        );
+        const passage = el("details", {},
+            el("summary", { text: "Show the passage used" }),
+            el("p", { class: "plate-text", text: source.text })
+        );
+        return el("div", { class: "plate" }, head, passage);
+    }
+
+    const ICONS = {
+        gear: '<circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/>',
+        book: '<path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H6.5A2.5 2.5 0 0 0 4 21.5z"/><path d="M4 19V5.5"/>',
+        check: '<circle cx="12" cy="12" r="9"/><path d="m8 12.5 2.7 2.7L16 9.5"/>',
+        ask: '<path d="M21 12a8 8 0 0 1-8 8H4l2.2-3A8 8 0 1 1 21 12z"/>',
+        alert: '<path d="M12 3.5 2.8 20h18.4z"/><path d="M12 10v4.5M12 17.5v.01"/>',
+        people: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.2-5.5 6.5-5.5s5.9 1.9 6.5 5.5"/><path d="M16 4.8a3.5 3.5 0 0 1 0 6.4M18 14.8c1.9.7 3.1 2.5 3.5 5.2"/>',
+        download: '<path d="M12 4v12M7 11l5 5 5-5"/><path d="M4 20h16"/>',
+    };
+
+    function icon(name) {
+        const span = document.createElement("span");
+        span.innerHTML = `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name]}</svg>`;
+        return span.firstElementChild;
+    }
+
+    function statTile(iconName, value, label, tone) {
+        return el("div", { class: `stat${tone ? " stat-" + tone : ""}` },
+            el("span", { class: "stat-badge" }, icon(iconName)),
+            el("div", {},
+                el("strong", { text: value }),
+                el("span", { class: "stat-label", text: label })
+            )
+        );
+    }
+
+    async function signOut() {
+        try {
+            await api("/api/logout/", { method: "POST" });
+        } finally {
+            window.location.href = "/login/";
+        }
+    }
+</script>

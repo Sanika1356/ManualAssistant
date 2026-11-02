@@ -3,7 +3,8 @@ import logging
 from django.db import DatabaseError
 from django.shortcuts import render, redirect
 from django.views.decorators.csrf import csrf_protect
-from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth import authenticate, get_user_model, login, logout
+from django.contrib.auth.models import Group
 from django.http import JsonResponse
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.utils.decorators import method_decorator
@@ -13,7 +14,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 
-from .serializers import LoginSerializer
+from .serializers import LoginSerializer, SignupSerializer
 
 
 logger = logging.getLogger(__name__)
@@ -90,6 +91,38 @@ class LoginAPI(APIView):
             "username": user.username,
             "role": roles[0]
         })
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class SignupAPI(APIView):
+    """
+    Creates a new account. New accounts are always Engineers, so nobody can
+    make themselves an Administrator or a Supervisor by signing up.
+    """
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def post(self, request):
+        serializer = SignupSerializer(data=request.data)
+
+        if not serializer.is_valid():
+            return Response(
+                serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        user = get_user_model().objects.create_user(
+            username=serializer.validated_data["username"],
+            password=serializer.validated_data["password"],
+        )
+        engineer_group, _ = Group.objects.get_or_create(name="Engineer")
+        user.groups.add(engineer_group)
+
+        return Response(
+            {"username": user.username, "role": "Engineer"},
+            status=status.HTTP_201_CREATED
+        )
 
 
 class MeAPI(APIView):

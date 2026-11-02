@@ -1,6 +1,6 @@
 from django.test import TestCase
 from django.contrib.auth.models import User, Group, AnonymousUser
-from rest_framework.test import APIRequestFactory
+from rest_framework.test import APIClient, APIRequestFactory
 
 from .permissions import (
     IsAdministrator,
@@ -79,3 +79,44 @@ class RolePermissionTests(TestCase):
             self.assertFalse(
                 permission.has_permission(request, None)
             )
+
+
+class SignupTests(TestCase):
+
+    def setUp(self):
+        self.client = APIClient()
+
+    def signup(self, **extra):
+        data = {"username": "new_engineer", "password": "Str0ng-Pass-77"}
+        data.update(extra)
+        return self.client.post("/api/signup/", data, format="json")
+
+    def test_new_account_is_always_an_engineer(self):
+        response = self.signup(role="Administrator", is_superuser=True, is_staff=True)
+
+        self.assertEqual(response.status_code, 201)
+        user = User.objects.get(username="new_engineer")
+        self.assertEqual(list(user.groups.values_list("name", flat=True)), ["Engineer"])
+        self.assertFalse(user.is_superuser)
+        self.assertFalse(user.is_staff)
+
+    def test_new_user_can_log_in(self):
+        self.signup()
+        response = self.client.post(
+            "/api/login/",
+            {"username": "new_engineer", "password": "Str0ng-Pass-77"},
+            format="json",
+        )
+        self.assertEqual(response.data["role"], "Engineer")
+
+    def test_duplicate_username_is_refused(self):
+        self.signup()
+        response = self.signup(username="NEW_engineer")
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("username", response.data)
+
+    def test_weak_password_is_refused(self):
+        response = self.signup(password="12345")
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("password", response.data)
+        self.assertFalse(User.objects.filter(username="new_engineer").exists())

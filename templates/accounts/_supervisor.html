@@ -1,0 +1,227 @@
+<style>
+    .rate-panel { margin-bottom: 24px; }
+    .rate-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 28px; }
+    .bar-row { margin-bottom: 11px; }
+    .bar-row:last-child { margin-bottom: 0; }
+    .bar-label { display: flex; justify-content: space-between; gap: 12px; font-size: 15px; margin-bottom: 4px; }
+    .bar-label span { color: var(--steel); white-space: nowrap; }
+    .bar { height: 9px; border-radius: 999px; background: #e7ecf0; overflow: hidden; }
+    .bar i { display: block; height: 100%; background: var(--enamel); border-radius: 999px; }
+    .bar i.green { background: var(--green); }
+    .bar i.amber { background: #d08a12; }
+    .head-row { display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: flex-start; }
+    .question-toggle {
+        background: none; border: 0; padding: 0; text-align: left; color: var(--enamel);
+        font-weight: 600; overflow-wrap: anywhere;
+    }
+    .question-toggle:hover { text-decoration: underline; }
+    .detail-row td { background: #f6f8f9; padding: 16px 20px 20px; }
+    .detail-label { font-weight: 600; font-size: 14px; color: var(--steel); margin-bottom: 4px; }
+    .answer-text { margin: 0 0 8px; white-space: pre-wrap; overflow-wrap: anywhere; max-width: 80ch; }
+    .cite { font-weight: 700; text-decoration: none; }
+</style>
+
+<main class="page">
+    <div class="head-row">
+        <div>
+            <h1 class="page-title">Question history</h1>
+            <p class="page-lede">Every question Engineers have asked, and the answer they received. This view is read-only.</p>
+        </div>
+        <button type="button" class="btn-plain" id="exportButton"></button>
+    </div>
+
+    <div class="stats" id="tally"></div>
+
+    <section class="panel rate-panel" aria-label="Summary"><div class="panel-body rate-grid">
+        <div>
+            <h2 class="panel-title mb-3">Answer rate</h2>
+            <div id="rateBars"></div>
+        </div>
+        <div>
+            <h2 class="panel-title mb-3">Questions by machine</h2>
+            <div id="machineBars"></div>
+        </div>
+    </div></section>
+    <div id="historyNotice" aria-live="polite"></div>
+
+    <section class="panel" aria-label="Question history">
+        <div class="panel-body pb-3">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label" for="historySearch">Search</label>
+                    <input class="form-control" id="historySearch" type="search" placeholder="Words in the question or answer">
+                </div>
+                <div class="col-sm-4 col-md-3">
+                    <label class="form-label" for="statusFilter">Result</label>
+                    <select class="form-select" id="statusFilter">
+                        <option value="">All results</option>
+                        <option value="answered">Answered</option>
+                        <option value="insufficient_evidence">Not in the manuals</option>
+                    </select>
+                </div>
+                <div class="col-sm-4 col-md-2">
+                    <label class="form-label" for="engineerFilter">Engineer</label>
+                    <select class="form-select" id="engineerFilter"><option value="">All</option></select>
+                </div>
+                <div class="col-sm-4 col-md-3">
+                    <label class="form-label" for="machineFilter">Machine</label>
+                    <select class="form-select" id="machineFilter"><option value="">All</option></select>
+                </div>
+            </div>
+        </div>
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead><tr><th>Asked</th><th>Engineer</th><th>Machine</th><th>Question</th><th>Result</th></tr></thead>
+                <tbody id="historyRows"><tr><td colspan="5" class="empty">Loading history</td></tr></tbody>
+            </table>
+        </div>
+    </section>
+</main>
+
+<script>
+    let questions = [];
+    const openIds = new Set();
+
+    function fillSelect(id, values) {
+        const select = document.getElementById(id);
+        values.forEach(value => select.append(el("option", { value, text: value })));
+    }
+
+    function machineLabel(q) {
+        return `${q.machine_name} (${q.machine_model})`;
+    }
+
+    function barRow(label, value, total, tone, note) {
+        const share = total ? Math.round((value / total) * 100) : 0;
+        const fill = el("i", { class: tone || "" });
+        fill.style.width = `${share}%`;
+        return el("div", { class: "bar-row" },
+            el("div", { class: "bar-label" }, el("div", { text: label }), el("span", { text: note || `${value} (${share}%)` })),
+            el("div", { class: "bar" }, fill)
+        );
+    }
+
+    function drawTally() {
+        const answered = questions.filter(q => q.status === "answered").length;
+        const total = questions.length;
+        document.getElementById("tally").replaceChildren(
+            statTile("ask", total, "Questions asked"),
+            statTile("check", answered, "Answered", "green"),
+            statTile("alert", total - answered, "Not in the manuals", "amber"),
+            statTile("people", new Set(questions.map(q => q.username)).size, "Engineers")
+        );
+
+        document.getElementById("rateBars").replaceChildren(
+            barRow("Answered from the manuals", answered, total, "green"),
+            barRow("Not in the manuals", total - answered, total, "amber")
+        );
+
+        const counts = new Map();
+        questions.forEach(q => counts.set(machineLabel(q), (counts.get(machineLabel(q)) || 0) + 1));
+        const machineBars = document.getElementById("machineBars");
+        machineBars.replaceChildren();
+        if (!counts.size) machineBars.append(el("p", { class: "text-muted mb-0", text: "No questions yet." }));
+        [...counts.entries()].sort((a, b) => b[1] - a[1]).forEach(([label, count]) => {
+            machineBars.append(barRow(label, count, total));
+        });
+    }
+
+    function filteredQuestions() {
+        const term = document.getElementById("historySearch").value.trim().toLowerCase();
+        const status = document.getElementById("statusFilter").value;
+        const engineer = document.getElementById("engineerFilter").value;
+        const machine = document.getElementById("machineFilter").value;
+
+        return questions.filter(q =>
+            (!status || q.status === status) &&
+            (!engineer || q.username === engineer) &&
+            (!machine || machineLabel(q) === machine) &&
+            `${q.text} ${q.answer}`.toLowerCase().includes(term)
+        );
+    }
+
+    // Download what is on screen as a spreadsheet file.
+    function exportCsv() {
+        const quote = value => {
+            let text = String(value ?? "");
+            // A leading = + - @ would run as a formula when opened in Excel.
+            if (/^[=+\-@]/.test(text)) text = "'" + text;
+            return `"${text.replace(/"/g, '""')}"`;
+        };
+        const rows = [["Asked", "Engineer", "Machine ID", "Machine", "Question", "Result", "Answer", "Sources"]];
+        filteredQuestions().forEach(q => rows.push([
+            new Date(q.created_at).toISOString(), q.username, q.machine_code, machineLabel(q), q.text,
+            q.status === "answered" ? "Answered" : "Not in the manuals", q.answer,
+            (q.sources || []).map(s => `${s.document_id || s.manual_name} rev ${s.revision} p${s.page_number}`).join("; "),
+        ]));
+        const blob = new Blob(["\ufeff" + rows.map(row => row.map(quote).join(",")).join("\r\n")], { type: "text/csv" });
+        const link = el("a", { href: URL.createObjectURL(blob), download: "question-history.csv" });
+        document.body.append(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(link.href);
+    }
+
+    function detailRow(q) {
+        const cell = el("td", { colspan: 5 },
+            el("div", { class: "detail-label", text: "Answer received" }),
+            answerWithLinks(q.answer, q.sources)
+        );
+        if (q.sources && q.sources.length) {
+            cell.append(el("div", { class: "detail-label mt-3", text: "Sources" }));
+            q.sources.forEach(source => cell.append(sourcePlate(source)));
+        }
+        return el("tr", { class: "detail-row" }, cell);
+    }
+
+    function drawRows() {
+        const found = filteredQuestions();
+
+        const rows = document.getElementById("historyRows");
+        rows.replaceChildren();
+        if (!found.length) {
+            const message = questions.length ? "No questions match these filters." : "No questions yet. They appear here once Engineers start asking.";
+            rows.append(el("tr", {}, el("td", { colspan: 5, class: "empty", text: message })));
+            return;
+        }
+
+        found.forEach(q => {
+            const isOpen = openIds.has(q.id);
+            rows.append(el("tr", {},
+                el("td", { style: "white-space:nowrap", text: formatDateTime(q.created_at) }),
+                el("td", { text: q.username }),
+                el("td", { text: machineLabel(q) }),
+                el("td", {}, el("button", {
+                    type: "button", class: "question-toggle", "aria-expanded": String(isOpen), text: q.text,
+                    onclick: () => {
+                        if (openIds.has(q.id)) openIds.delete(q.id); else openIds.add(q.id);
+                        drawRows();
+                    },
+                })),
+                el("td", {}, statusBadge(q.status))
+            ));
+            if (isOpen) rows.append(detailRow(q));
+        });
+    }
+
+    ["historySearch", "statusFilter", "engineerFilter", "machineFilter"].forEach(id => {
+        document.getElementById(id).addEventListener("input", drawRows);
+    });
+
+    const exportButton = document.getElementById("exportButton");
+    exportButton.append(icon("download"), "Download CSV");
+    exportButton.addEventListener("click", exportCsv);
+
+    (async function start() {
+        try {
+            questions = await api("/api/history/");
+            fillSelect("engineerFilter", [...new Set(questions.map(q => q.username))].sort());
+            fillSelect("machineFilter", [...new Set(questions.map(machineLabel))].sort());
+            drawTally();
+            drawRows();
+        } catch (error) {
+            showNotice(document.getElementById("historyNotice"), error.message, "bad");
+            document.getElementById("historyRows").replaceChildren(el("tr", {}, el("td", { colspan: 5, class: "empty", text: "The history could not be loaded." })));
+        }
+    })();
+</script>

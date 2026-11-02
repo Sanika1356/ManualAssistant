@@ -42,7 +42,7 @@ def _generate_groq(system_prompt, user_prompt):
             # A low temperature keeps answers close to the passages.
             temperature=0,
             max_completion_tokens=MAX_OUTPUT_TOKENS,
-            reasoning_effort="low",
+            reasoning_effort="medium",
             include_reasoning=False,
         )
     except groq.APIError as error:

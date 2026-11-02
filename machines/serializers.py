@@ -1,4 +1,3 @@
-
 from rest_framework import serializers
 
 from .models import Machine, Manual
@@ -12,11 +11,21 @@ MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024  # 25 MB
 class MachineSerializer(serializers.ModelSerializer):
     class Meta:
         model = Machine
-        fields = ["id", "name", "model"]
+        fields = ["id", "machine_code", "name", "model"]
+        # The uniqueness rules are checked in validate(), with clearer messages.
+        validators = []
+        extra_kwargs = {"machine_code": {"validators": []}}
 
     def validate(self, data):
         name = data.get("name", "").strip()
         model = data.get("model", "").strip()
+        machine_code = data.get("machine_code", "").strip()
+        data["machine_code"] = machine_code
+
+        if machine_code and Machine.objects.filter(machine_code=machine_code).exists():
+            raise serializers.ValidationError(
+                "This Machine ID is already in use."
+            )
 
         if Machine.objects.filter(name=name, model=model).exists():
             raise serializers.ValidationError(
@@ -35,15 +44,21 @@ class ManualListSerializer(serializers.ModelSerializer):
         source="machine.model",
         read_only=True,
     )
+    machine_code = serializers.CharField(
+        source="machine.machine_code",
+        read_only=True,
+    )
 
     class Meta:
         model = Manual
         fields = [
             "id",
+            "document_id",
             "name",
             "revision",
             "machine_name",
             "machine_model",
+            "machine_code",
             "uploaded_at",
         ]
 
@@ -64,6 +79,12 @@ class ManualUploadSerializer(serializers.Serializer):
     revision = serializers.CharField(
         max_length=100,
         trim_whitespace=True
+    )
+    document_id = serializers.CharField(
+        max_length=50,
+        trim_whitespace=True,
+        required=False,
+        allow_blank=True,
     )
     file = serializers.FileField()
 
@@ -108,6 +129,15 @@ class ManualUploadSerializer(serializers.Serializer):
         machine_model = data.get("machine_model", "").strip()
         manual_name = data.get("name", "").strip()
         revision = data.get("revision", "").strip()
+        document_id = data.get("document_id", "").strip()
+
+        if document_id and Manual.objects.filter(
+            document_id=document_id,
+            revision=revision,
+        ).exists():
+            raise serializers.ValidationError(
+                "A manual with this Document ID and revision already exists."
+            )
 
         # Check for duplicate manual revision
         if Manual.objects.filter(
@@ -127,6 +157,7 @@ class ManualUploadSerializer(serializers.Serializer):
         machine_model = validated_data["machine_model"].strip()
         manual_name = validated_data["name"].strip()
         revision = validated_data["revision"].strip()
+        document_id = validated_data.get("document_id", "").strip()
         uploaded_file = validated_data["file"]
 
         request = self.context.get("request")
@@ -148,6 +179,7 @@ class ManualUploadSerializer(serializers.Serializer):
             machine=machine,
             name=manual_name,
             revision=revision,
+            document_id=document_id,
             file=uploaded_file,
             uploaded_by=uploaded_by,
         )

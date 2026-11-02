@@ -1,8 +1,8 @@
 """
 Stores manual passages in ChromaDB and searches them.
 
-Each stored passage carries these details: machine_id, manual_id,
-manual_name, revision, page and chunk_id.
+Each stored passage carries these details: machine_id, machine_code, manual_id,
+document_id, manual_name, revision, page and chunk_id.
 """
 from dataclasses import dataclass
 
@@ -29,6 +29,8 @@ class Hit:
     text: str
     score: float  # cosine similarity; higher means a closer match
     machine_id: int
+    machine_code: str = ""
+    document_id: str = ""
 
 
 def _client():
@@ -87,7 +89,9 @@ def index_manual(manual):
             metadatas=[
                 {
                     "machine_id": manual.machine_id,
+                    "machine_code": manual.machine.machine_code,
                     "manual_id": manual.id,
+                    "document_id": manual.document_id,
                     "manual_name": manual.name,
                     "revision": manual.revision,
                     "page": chunk.page_number,
@@ -137,6 +141,9 @@ def search(machine_id, question, k=4, manual_id=None):
                 # Chroma returns a distance, so convert it to a similarity.
                 score=round(1.0 - float(distance), 4),
                 machine_id=meta["machine_id"],
+                # .get() so passages indexed before these fields still load.
+                machine_code=meta.get("machine_code", ""),
+                document_id=meta.get("document_id", ""),
             )
         )
 

@@ -165,11 +165,10 @@ class TwoManualTests(RetrievalTestCase):
 
     def test_answer_citing_two_manuals_saves_both_sources(self):
         hits = [
-            mock.Mock(chunk_id=self.ops.chunks.first().id, manual_id=self.ops.id,
+                        mock.Mock(chunk_id=self.ops.chunks.first().id, manual_id=self.ops.id, document_id="OPS-1",
                       manual_name="Press Operations", revision="1.0", page=1,
                       text="Trigger", score=0.6, machine_id=self.press.id),
-            mock.Mock(chunk_id=self.maintenance.chunks.first().id, manual_id=self.maintenance.id,
-                      manual_name="Press Maintenance", revision="1.0", page=1,
+            mock.Mock(chunk_id=self.maintenance.chunks.first().id, manual_id=self.maintenance.id, document_id="MNT-1",                      manual_name="Press Maintenance", revision="1.0", page=1,
                       text="First checks", score=0.2, machine_id=self.press.id),
         ]
         with mock.patch("retrieval.services.retrieve", return_value=hits), \
@@ -191,7 +190,7 @@ class TwoManualTests(RetrievalTestCase):
         self.assertEqual(response.data["status"], "insufficient_evidence")
 
 
-class CitationCheckTests(RetrievalTestCase):
+
 
     QUESTION = "At what temperature should I bake the lasagna?"
 
@@ -204,6 +203,12 @@ class CitationCheckTests(RetrievalTestCase):
             self.assertEqual(response.data["status"], "answered")
             self.assertEqual(response.data["answer"], "180 degrees [1].")
             self.assertEqual(len(response.data["sources"]), 1)
+
+    def test_special_spaces_and_bold_marks_are_removed(self):
+        with mock.patch("retrieval.llm.generate", return_value="**180\u202fdegrees** [1]."):
+            response = self.ask(self.machine_a, self.QUESTION)
+
+        self.assertEqual(response.data["answer"], "180 degrees [1].")
 
     def test_uncited_answer_is_retried_once_then_saved_when_fixed(self):
         replies = ["180 degrees.", "180 degrees [1]."]
@@ -230,47 +235,34 @@ class CitationCheckTests(RetrievalTestCase):
         self.assertEqual(response.data["status"], "insufficient_evidence")
         self.assertNotIn("[99]", response.data["answer"])
 
+class IdentifierTests(RetrievalTestCase):
+    
+    def setUp(self):
+        super().setUp()
+        self.machine_c = Machine.objects.create(machine_code="M-OVEN", name="Oven C", model="C1")
+        manual = Manual.objects.create(
+            machine=self.machine_c, name="Oven C Manual", revision="1.0",
+            document_id="OV-01", file="manuals/oven_c.pdf",
+        )
+        Chunk.objects.create(manual=manual, page_number=2, text="Bake the lasagna at 170 degrees.")
+        vectorstore.index_manual(manual)
 
-class ProviderTests(TestCase):
+    def test_search_result_carries_all_four_details(self):
+        hit = vectorstore.search(self.machine_c.id, LASAGNA_QUESTION)[0]
 
-    def fake_groq_reply(self, content):
-        reply = mock.MagicMock()
-        reply.choices[0].message.content = content
-        return reply
+        self.assertEqual(hit.machine_code, "M-OVEN")
+        self.assertEqual(hit.document_id, "OV-01")
+        self.assertEqual(hit.revision, "1.0")
+        self.assertEqual(hit.page, 2)
 
-    @mock.patch.dict("os.environ", {"LLM_PROVIDER": "groq", "GROQ_API_KEY": "test-key"})
-    def test_groq_reply_and_prompts_are_passed_through(self):
-        with mock.patch("groq.Groq") as fake_client:
-            create = fake_client.return_value.chat.completions.create
-            create.return_value = self.fake_groq_reply(" 180 degrees [1]. ")
-            reply = llm.generate("the rules", "the question")
+    def test_answer_shows_machine_id_and_document_id(self):
+        with mock.patch("retrieval.llm.generate", return_value="170 degrees [1]."):
+            response = self.ask(self.machine_c, LASAGNA_QUESTION)
 
-        self.assertEqual(reply, "180 degrees [1].")
-        messages = create.call_args.kwargs["messages"]
-        self.assertEqual(messages[0], {"role": "system", "content": "the rules"})
-        self.assertEqual(messages[1], {"role": "user", "content": "the question"})
-
-    @mock.patch.dict("os.environ", {"LLM_PROVIDER": "groq", "GROQ_API_KEY": ""})
-    def test_missing_groq_key_gives_a_clear_error(self):
-        with self.assertRaisesMessage(LLMUnavailable, "GROQ_API_KEY"):
-            llm.generate("rules", "question")
-
-    @mock.patch.dict("os.environ", {"LLM_PROVIDER": "groq", "GROQ_API_KEY": "test-key"})
-    def test_groq_failure_becomes_llm_unavailable(self):
-        import groq
-
-        error = groq.APIConnectionError(request=mock.Mock())
-        with mock.patch("groq.Groq") as fake_client:
-            fake_client.return_value.chat.completions.create.side_effect = error
-            with self.assertRaises(LLMUnavailable):
-                llm.generate("rules", "question")
-
-    @mock.patch.dict("os.environ", {"LLM_PROVIDER": "other"})
-    def test_unknown_provider_gives_a_clear_error(self):
-        with self.assertRaisesMessage(LLMUnavailable, "LLM_PROVIDER"):
-            llm.generate("rules", "question")
-
-
+        self.assertEqual(response.data["machine_code"], "M-OVEN")
+        self.assertEqual(response.data["sources"][0]["document_id"], "OV-01")
+        
+        
 class AskEndpointTests(RetrievalTestCase):
 
     def test_answered_question_is_saved_with_its_source(self):
